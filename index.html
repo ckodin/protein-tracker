@@ -383,7 +383,7 @@ function ProtoApp({ isMobile = false }) {
 
   let body;
   if (screen === 'onb-1')   body = <Onboarding1 T={theme} singlish="calm" onNext={() => setScreen('onb-2')} topPad={tp} />;
-  else if (screen === 'onb-2') body = <Onboarding2 T={theme} weight={weight} setWeight={setWeight} activity={activity} setActivity={setActivity} onNext={() => setScreen('onb-3')} onBack={() => setScreen('onb-1')} topPad={tp} />;
+  else if (screen === 'onb-2') body = <Onboarding2 T={theme} weight={weight} setWeight={setWeight} activity={activity} setActivity={setActivity} onNext={() => { setGoal(goalFromWeight(weight, activity)); setScreen('onb-3'); }} onBack={() => setScreen('onb-1')} topPad={tp} />;
   else if (screen === 'onb-3') body = <Onboarding3 T={theme} weight={weight} activity={activity} suggestedGoal={goalFromWeight(weight, activity)} goal={goal} setGoal={setGoal} onDone={completeOnboarding} onBack={() => setScreen('onb-2')} singlish="calm" topPad={tp} />;
   else if (screen === 'today') body = <Today T={theme} logs={logs} todayTotal={todayTotal} goal={goal} pct={pct} onLog={() => setLogOpen(true)} onRemove={removeLog} onEdit={(log) => setEditing(log)} singlish="calm" showWeekChart={true} history={history} topPad={tp} />;
   else if (screen === 'week')    body = <Week T={theme} history={history} todayTotal={todayTotal} goal={goal} singlish="calm" topPad={tp} />;
