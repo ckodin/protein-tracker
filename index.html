@@ -2,8 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>SG Protein Tracker</title>
+
+  <!-- PWA / home screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Protein" />
+  <meta name="theme-color" content="#FAF7F2" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -24,6 +30,14 @@
       display: flex; align-items: center; justify-content: center;
       padding: 24px;
       box-sizing: border-box;
+    }
+    /* On real phones: fill the screen, no frame, no padding */
+    @media (max-width: 500px) {
+      html, body { height: 100%; background: #FAF7F2; }
+      #stage {
+        padding: 0; min-height: 100dvh;
+        align-items: stretch; justify-content: stretch;
+      }
     }
     *::-webkit-scrollbar { width: 0; height: 0; }
   </style>
@@ -284,8 +298,9 @@ const THEME = {
   numWeight: 300, numLetter: -2,
 };
 
-function ProtoApp() {
+function ProtoApp({ isMobile = false }) {
   const theme = THEME;
+  const tp = isMobile ? 14 : 60;
   const [goal, setGoal] = React.useState(110);
 
   const [screen, setScreen] = React.useState('onb-1');
@@ -332,12 +347,12 @@ function ProtoApp() {
   };
 
   let body;
-  if (screen === 'onb-1')   body = <Onboarding1 T={theme} singlish="calm" onNext={() => setScreen('onb-2')} />;
-  else if (screen === 'onb-2') body = <Onboarding2 T={theme} weight={weight} setWeight={setWeight} activity={activity} setActivity={setActivity} onNext={() => setScreen('onb-3')} onBack={() => setScreen('onb-1')} />;
-  else if (screen === 'onb-3') body = <Onboarding3 T={theme} weight={weight} activity={activity} suggestedGoal={goalFromWeight(weight, activity)} goal={goal} setGoal={setGoal} onDone={() => setScreen('today')} onBack={() => setScreen('onb-2')} singlish="calm" />;
-  else if (screen === 'today') body = <Today T={theme} logs={logs} todayTotal={todayTotal} goal={goal} pct={pct} onLog={() => setLogOpen(true)} onRemove={removeLog} onEdit={(log) => setEditing(log)} singlish="calm" showWeekChart={true} history={history} />;
-  else if (screen === 'week')    body = <Week T={theme} history={history} todayTotal={todayTotal} goal={goal} singlish="calm" />;
-  else if (screen === 'profile') body = <Profile T={theme} goal={goal} setGoal={setGoal} weight={weight} activity={activity} onResetOnboarding={() => setScreen('onb-1')} />;
+  if (screen === 'onb-1')   body = <Onboarding1 T={theme} singlish="calm" onNext={() => setScreen('onb-2')} topPad={tp} />;
+  else if (screen === 'onb-2') body = <Onboarding2 T={theme} weight={weight} setWeight={setWeight} activity={activity} setActivity={setActivity} onNext={() => setScreen('onb-3')} onBack={() => setScreen('onb-1')} topPad={tp} />;
+  else if (screen === 'onb-3') body = <Onboarding3 T={theme} weight={weight} activity={activity} suggestedGoal={goalFromWeight(weight, activity)} goal={goal} setGoal={setGoal} onDone={() => setScreen('today')} onBack={() => setScreen('onb-2')} singlish="calm" topPad={tp} />;
+  else if (screen === 'today') body = <Today T={theme} logs={logs} todayTotal={todayTotal} goal={goal} pct={pct} onLog={() => setLogOpen(true)} onRemove={removeLog} onEdit={(log) => setEditing(log)} singlish="calm" showWeekChart={true} history={history} topPad={tp} />;
+  else if (screen === 'week')    body = <Week T={theme} history={history} todayTotal={todayTotal} goal={goal} singlish="calm" topPad={tp} />;
+  else if (screen === 'profile') body = <Profile T={theme} goal={goal} setGoal={setGoal} weight={weight} activity={activity} onResetOnboarding={() => setScreen('onb-1')} topPad={tp} />;
 
   const showTabs = screen === 'today' || screen === 'week' || screen === 'profile';
 
@@ -365,9 +380,9 @@ function ProtoApp() {
 
 // ── ONBOARDING ──────────────────────────────────────────────
 
-function Onboarding1({ T, onNext, singlish }) {
+function Onboarding1({ T, onNext, singlish, topPad = 60 }) {
   return (
-    <div style={{ height: '100%', padding: '90px 28px 40px', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100%', padding: `${topPad + 30}px 28px 40px`, display: 'flex', flexDirection: 'column' }}>
       <div style={{
         width: 56, height: 56, borderRadius: 16,
         background: T.accentSoft, color: T.accent,
@@ -408,9 +423,9 @@ function Onboarding1({ T, onNext, singlish }) {
   );
 }
 
-function Onboarding2({ T, weight, setWeight, activity, setActivity, onNext, onBack }) {
+function Onboarding2({ T, weight, setWeight, activity, setActivity, onNext, onBack, topPad = 60 }) {
   return (
-    <div style={{ height: '100%', padding: '70px 24px 30px', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100%', padding: `${topPad + 10}px 24px 30px`, display: 'flex', flexDirection: 'column' }}>
       <OnbHeader T={T} step={2} total={3} onBack={onBack} />
       <div style={{ marginTop: 20, fontFamily: T.fontDisplay, fontSize: 30, letterSpacing: -0.6, lineHeight: 1.1, fontWeight: T.numWeight + 200 }}>
         A bit about you.
@@ -467,9 +482,9 @@ function Onboarding2({ T, weight, setWeight, activity, setActivity, onNext, onBa
   );
 }
 
-function Onboarding3({ T, weight, activity, suggestedGoal, goal, setGoal, onDone, onBack, singlish }) {
+function Onboarding3({ T, weight, activity, suggestedGoal, goal, setGoal, onDone, onBack, singlish, topPad = 60 }) {
   return (
-    <div style={{ height: '100%', padding: '70px 24px 30px', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ height: '100%', padding: `${topPad + 10}px 24px 30px`, display: 'flex', flexDirection: 'column' }}>
       <OnbHeader T={T} step={3} total={3} onBack={onBack} />
       <div style={{ marginTop: 20, fontFamily: T.fontDisplay, fontSize: 30, letterSpacing: -0.6, lineHeight: 1.1, fontWeight: T.numWeight + 200 }}>
         Your daily goal.
@@ -541,7 +556,7 @@ function BigButton({ T, onClick, children }) {
 
 // ── TODAY ───────────────────────────────────────────────────
 
-function Today({ T, logs, todayTotal, goal, pct, onLog, onRemove, onEdit, singlish, showWeekChart, history }) {
+function Today({ T, logs, todayTotal, goal, pct, onLog, onRemove, onEdit, singlish, showWeekChart, history, topPad = 60 }) {
   const remaining = Math.max(0, goal - todayTotal);
   const ringR = 86, ringC = 2 * Math.PI * ringR;
   const hour = new Date().getHours();
@@ -557,7 +572,7 @@ function Today({ T, logs, todayTotal, goal, pct, onLog, onRemove, onEdit, singli
   })();
 
   return (
-    <div style={{ padding: '60px 0 12px' }}>
+    <div style={{ padding: `${topPad}px 0 12px` }}>
       <div style={{ padding: '8px 22px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 12, color: T.muted, letterSpacing: 0.2, textTransform: 'capitalize' }}>{dateStr}</div>
@@ -676,12 +691,12 @@ function LogRow({ log, last, T, onRemove, onEdit }) {
 
 // ── WEEK ────────────────────────────────────────────────────
 
-function Week({ T, history, todayTotal, goal, singlish }) {
+function Week({ T, history, todayTotal, goal, singlish, topPad = 60 }) {
   const data = [...history, todayTotal];
   const hits = data.filter(d => d >= goal).length;
   const avg = Math.round(data.reduce((s,v) => s+v, 0) / 7);
   return (
-    <div style={{ padding: '60px 16px 12px' }}>
+    <div style={{ padding: `${topPad}px 16px 12px` }}>
       <div style={{ padding: '8px 8px 18px' }}>
         <div style={{ fontSize: 12, color: T.muted, letterSpacing: 0.2 }}>Past 7 days</div>
         <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: -0.4, marginTop: 2, fontFamily: T.fontDisplay }}>
@@ -752,9 +767,9 @@ function WeekBars({ T, data, goal, tall }) {
 
 // ── PROFILE ─────────────────────────────────────────────────
 
-function Profile({ T, goal, setGoal, weight, activity, onResetOnboarding }) {
+function Profile({ T, goal, setGoal, weight, activity, onResetOnboarding, topPad = 60 }) {
   return (
-    <div style={{ padding: '60px 16px 12px' }}>
+    <div style={{ padding: `${topPad}px 16px 12px` }}>
       <div style={{ padding: '8px 8px 18px' }}>
         <div style={{ fontSize: 12, color: T.muted, letterSpacing: 0.2 }}>You</div>
         <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: -0.4, marginTop: 2, fontFamily: T.fontDisplay }}>Settings</div>
@@ -1249,6 +1264,20 @@ Object.assign(window, { ProtoApp });
   <!-- ── Entry point ────────────────────────────────────────── -->
   <script type="text/babel">
 function Standalone() {
+  const isMobile = window.innerWidth <= 500;
+  if (isMobile) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: '#FAF7F2',
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        display: 'flex', flexDirection: 'column',
+      }}>
+        <ProtoApp isMobile={true} />
+      </div>
+    );
+  }
   return (
     <IOSDevice width={400} height={860} dark={false}>
       <ProtoApp />
