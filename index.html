@@ -1335,5 +1335,14 @@ function Standalone() {
 ReactDOM.createRoot(document.getElementById('stage')).render(<Standalone />);
   </script>
 
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/protein-tracker/sw.js')
+          .then(reg => reg.update()) // always check for a new version on load
+          .catch(() => {});
+      });
+    }
+  </script>
 </body>
 </html>
