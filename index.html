@@ -1,0 +1,1262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SG Protein Tracker</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Outfit:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; -webkit-font-smoothing: antialiased; }
+    body {
+      background:
+        radial-gradient(ellipse at 30% 20%, #f4ede0 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 80%, #e9e4d6 0%, transparent 55%),
+        #f0eee9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      color: #2a251f;
+    }
+    #stage {
+      width: 100%; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    *::-webkit-scrollbar { width: 0; height: 0; }
+  </style>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="stage"></div>
+
+  <!-- ── foods.js ──────────────────────────────────────────── -->
+  <script>
+window.SG_FOODS = [
+  { id: 'chx-rice',       name: 'Chicken rice',           protein: 28, cat: 'rice',    pop: 1 },
+  { id: 'chx-rice-rstd',  name: 'Chicken rice (roasted)', protein: 30, cat: 'rice'    },
+  { id: 'nasi-lemak',     name: 'Nasi lemak (chicken)',   protein: 32, cat: 'rice',    pop: 1 },
+  { id: 'mixed-rice',     name: 'Mixed rice (2 meat)',    protein: 35, cat: 'rice',    pop: 1 },
+  { id: 'curry-chx-rice', name: 'Curry chicken + rice',   protein: 30, cat: 'rice'    },
+  { id: 'duck-rice',      name: 'Duck rice',              protein: 26, cat: 'rice'    },
+  { id: 'fishball-mee',   name: 'Fishball noodles',       protein: 22, cat: 'noodles', pop: 1 },
+  { id: 'bcm',            name: 'Bak chor mee',           protein: 20, cat: 'noodles' },
+  { id: 'wanton-mee',     name: 'Wanton mee',             protein: 18, cat: 'noodles' },
+  { id: 'hokkien-mee',    name: 'Hokkien mee',            protein: 18, cat: 'noodles' },
+  { id: 'laksa',          name: 'Laksa',                  protein: 24, cat: 'noodles' },
+  { id: 'ckt',            name: 'Char kway teow',         protein: 16, cat: 'noodles' },
+  { id: 'mee-rebus',      name: 'Mee rebus',              protein: 15, cat: 'noodles' },
+  { id: 'beef-horfun',    name: 'Beef hor fun',           protein: 28, cat: 'noodles' },
+  { id: 'mala-xg',        name: 'Mala xiang guo',         protein: 30, cat: 'noodles' },
+  { id: 'satay-5',        name: 'Satay (5 sticks)',       protein: 22, cat: 'protein' },
+  { id: 'yong-tau-foo',   name: 'Yong tau foo',           protein: 25, cat: 'protein', pop: 1 },
+  { id: 'chx-chop',       name: 'Chicken chop (western)', protein: 40, cat: 'protein' },
+  { id: 'chx-breast',     name: 'Chicken breast 150g',    protein: 46, cat: 'protein', pop: 1 },
+  { id: 'tuna-sandwich',  name: 'Tuna sandwich',          protein: 18, cat: 'protein' },
+  { id: 'soya-eggs',      name: 'Soya sauce eggs (2)',    protein: 12, cat: 'protein' },
+  { id: 'boiled-egg',     name: 'Hard-boiled egg',        protein: 6,  cat: 'protein', pop: 1 },
+  { id: 'greek-yogurt',   name: 'Greek yogurt cup',       protein: 15, cat: 'protein' },
+  { id: 'kaya-toast',     name: 'Kaya toast set',         protein: 10, cat: 'snack',   pop: 1 },
+  { id: 'roti-prata',     name: 'Roti prata (egg)',       protein: 12, cat: 'snack'   },
+  { id: 'tau-huay',       name: 'Tau huay',               protein: 8,  cat: 'snack'   },
+  { id: 'curry-puff',     name: 'Curry puff',             protein: 6,  cat: 'snack'   },
+  { id: 'soya-bean',      name: 'Soya bean milk',         protein: 7,  cat: 'drink'   },
+  { id: 'kopi-c',         name: 'Kopi C',                 protein: 3,  cat: 'drink'   },
+  { id: 'teh-o',          name: 'Teh O',                  protein: 0,  cat: 'drink'   },
+  { id: 'milo',           name: 'Iced milo',              protein: 5,  cat: 'drink'   },
+  { id: 'bubble-tea',     name: 'Bubble tea',             protein: 4,  cat: 'drink'   },
+  { id: 'protein-shake',  name: 'Protein shake',          protein: 25, cat: 'drink',   pop: 1 },
+];
+
+window.proteinBucket = function (g) {
+  if (g >= 25) return { tier: 'high', label: 'High' };
+  if (g >= 12) return { tier: 'med',  label: 'Med'  };
+  return         { tier: 'low',  label: 'Low'  };
+};
+  </script>
+
+  <!-- ── ios-frame.jsx ─────────────────────────────────────── -->
+  <script type="text/babel">
+function IOSStatusBar({ dark = false, time = '9:41' }) {
+  const c = dark ? '#fff' : '#000';
+  return (
+    <div style={{
+      display: 'flex', gap: 154, alignItems: 'center', justifyContent: 'center',
+      padding: '21px 24px 19px', boxSizing: 'border-box',
+      position: 'relative', zIndex: 20, width: '100%',
+    }}>
+      <div style={{ flex: 1, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 1.5 }}>
+        <span style={{
+          fontFamily: '-apple-system, "SF Pro", system-ui', fontWeight: 590,
+          fontSize: 17, lineHeight: '22px', color: c,
+        }}>{time}</span>
+      </div>
+      <div style={{ flex: 1, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, paddingTop: 1, paddingRight: 1 }}>
+        <svg width="19" height="12" viewBox="0 0 19 12">
+          <rect x="0" y="7.5" width="3.2" height="4.5" rx="0.7" fill={c}/>
+          <rect x="4.8" y="5" width="3.2" height="7" rx="0.7" fill={c}/>
+          <rect x="9.6" y="2.5" width="3.2" height="9.5" rx="0.7" fill={c}/>
+          <rect x="14.4" y="0" width="3.2" height="12" rx="0.7" fill={c}/>
+        </svg>
+        <svg width="17" height="12" viewBox="0 0 17 12">
+          <path d="M8.5 3.2C10.8 3.2 12.9 4.1 14.4 5.6L15.5 4.5C13.7 2.7 11.2 1.5 8.5 1.5C5.8 1.5 3.3 2.7 1.5 4.5L2.6 5.6C4.1 4.1 6.2 3.2 8.5 3.2Z" fill={c}/>
+          <path d="M8.5 6.8C9.9 6.8 11.1 7.3 12 8.2L13.1 7.1C11.8 5.9 10.2 5.1 8.5 5.1C6.8 5.1 5.2 5.9 3.9 7.1L5 8.2C5.9 7.3 7.1 6.8 8.5 6.8Z" fill={c}/>
+          <circle cx="8.5" cy="10.5" r="1.5" fill={c}/>
+        </svg>
+        <svg width="27" height="13" viewBox="0 0 27 13">
+          <rect x="0.5" y="0.5" width="23" height="12" rx="3.5" stroke={c} strokeOpacity="0.35" fill="none"/>
+          <rect x="2" y="2" width="20" height="9" rx="2" fill={c}/>
+          <path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill={c} fillOpacity="0.4"/>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+function IOSGlassPill({ children, dark = false, style = {} }) {
+  return (
+    <div style={{
+      height: 44, minWidth: 44, borderRadius: 9999,
+      position: 'relative', overflow: 'hidden',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      boxShadow: dark
+        ? '0 2px 6px rgba(0,0,0,0.35), 0 6px 16px rgba(0,0,0,0.2)'
+        : '0 1px 3px rgba(0,0,0,0.07), 0 3px 10px rgba(0,0,0,0.06)',
+      ...style,
+    }}>
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 9999,
+        backdropFilter: 'blur(12px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(12px) saturate(180%)',
+        background: dark ? 'rgba(120,120,128,0.28)' : 'rgba(255,255,255,0.5)',
+      }} />
+      <div style={{
+        position: 'absolute', inset: 0, borderRadius: 9999,
+        boxShadow: dark
+          ? 'inset 1.5px 1.5px 1px rgba(255,255,255,0.15), inset -1px -1px 1px rgba(255,255,255,0.08)'
+          : 'inset 1.5px 1.5px 1px rgba(255,255,255,0.7), inset -1px -1px 1px rgba(255,255,255,0.4)',
+        border: dark ? '0.5px solid rgba(255,255,255,0.15)' : '0.5px solid rgba(0,0,0,0.06)',
+      }} />
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', padding: '0 4px' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function IOSNavBar({ title = 'Title', dark = false, trailingIcon = true }) {
+  const muted = dark ? 'rgba(255,255,255,0.6)' : '#404040';
+  const pillIcon = (content) => (
+    <IOSGlassPill dark={dark}>
+      <div style={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {content}
+      </div>
+    </IOSGlassPill>
+  );
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', gap: 10,
+      paddingTop: 62, paddingBottom: 10, position: 'relative', zIndex: 5,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px' }}>
+        {pillIcon(
+          <svg width="12" height="20" viewBox="0 0 12 20" fill="none" style={{ marginLeft: -1 }}>
+            <path d="M10 2L2 10l8 8" stroke={muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+        {trailingIcon && pillIcon(
+          <svg width="22" height="6" viewBox="0 0 22 6">
+            <circle cx="3" cy="3" r="2.5" fill={muted}/>
+            <circle cx="11" cy="3" r="2.5" fill={muted}/>
+            <circle cx="19" cy="3" r="2.5" fill={muted}/>
+          </svg>
+        )}
+      </div>
+      <div style={{
+        padding: '0 16px',
+        fontFamily: '-apple-system, system-ui',
+        fontSize: 34, fontWeight: 700, lineHeight: '41px',
+        color: dark ? '#fff' : '#000', letterSpacing: 0.4,
+      }}>{title}</div>
+    </div>
+  );
+}
+
+function IOSListRow({ title, detail, icon, chevron = true, isLast = false, dark = false }) {
+  const text = dark ? '#fff' : '#000';
+  const sec = dark ? 'rgba(235,235,245,0.6)' : 'rgba(60,60,67,0.6)';
+  const ter = dark ? 'rgba(235,235,245,0.3)' : 'rgba(60,60,67,0.3)';
+  const sep = dark ? 'rgba(84,84,88,0.65)' : 'rgba(60,60,67,0.12)';
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', minHeight: 52,
+      padding: '0 16px', position: 'relative',
+      fontFamily: '-apple-system, system-ui', fontSize: 17,
+      letterSpacing: -0.43,
+    }}>
+      {icon && (
+        <div style={{ width: 30, height: 30, borderRadius: 7, background: icon, marginRight: 12, flexShrink: 0 }} />
+      )}
+      <div style={{ flex: 1, color: text }}>{title}</div>
+      {detail && <span style={{ color: sec, marginRight: 6 }}>{detail}</span>}
+      {chevron && (
+        <svg width="8" height="14" viewBox="0 0 8 14" style={{ flexShrink: 0 }}>
+          <path d="M1 1l6 6-6 6" stroke={ter} strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      )}
+      {!isLast && (
+        <div style={{ position: 'absolute', bottom: 0, right: 0, left: icon ? 58 : 16, height: 0.5, background: sep }} />
+      )}
+    </div>
+  );
+}
+
+function IOSList({ header, children, dark = false }) {
+  const hc = dark ? 'rgba(235,235,245,0.6)' : 'rgba(60,60,67,0.6)';
+  const bg = dark ? '#1C1C1E' : '#fff';
+  return (
+    <div>
+      {header && (
+        <div style={{
+          fontFamily: '-apple-system, system-ui', fontSize: 13,
+          color: hc, textTransform: 'uppercase',
+          padding: '8px 36px 6px', letterSpacing: -0.08,
+        }}>{header}</div>
+      )}
+      <div style={{ background: bg, borderRadius: 26, margin: '0 16px', overflow: 'hidden' }}>{children}</div>
+    </div>
+  );
+}
+
+function IOSDevice({ children, width = 402, height = 874, dark = false, title, keyboard = false }) {
+  return (
+    <div style={{
+      width, height, borderRadius: 48, overflow: 'hidden',
+      position: 'relative', background: dark ? '#000' : '#F2F2F7',
+      boxShadow: '0 40px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.12)',
+      fontFamily: '-apple-system, system-ui, sans-serif',
+      WebkitFontSmoothing: 'antialiased',
+    }}>
+      <div style={{
+        position: 'absolute', top: 11, left: '50%', transform: 'translateX(-50%)',
+        width: 126, height: 37, borderRadius: 24, background: '#000', zIndex: 50,
+      }} />
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
+        <IOSStatusBar dark={dark} />
+      </div>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {title !== undefined && <IOSNavBar title={title} dark={dark} />}
+        <div style={{ flex: 1, overflow: 'auto' }}>{children}</div>
+      </div>
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 60,
+        height: 34, display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+        paddingBottom: 8, pointerEvents: 'none',
+      }}>
+        <div style={{
+          width: 139, height: 5, borderRadius: 100,
+          background: dark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.25)',
+        }} />
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { IOSDevice, IOSStatusBar, IOSNavBar, IOSGlassPill, IOSList, IOSListRow });
+  </script>
+
+  <!-- ── prototype.jsx ─────────────────────────────────────── -->
+  <script type="text/babel">
+// Full interactive prototype — onboarding → today → log → week → profile.
+
+const THEME = {
+  bg: '#FAF7F2', surface: '#FFFFFF', surface2: '#F4EFE7',
+  ink: '#1A1817', muted: '#7A7470',
+  accent: '#5B9A6B', accentSoft: 'rgba(91,154,107,0.12)',
+  line: 'rgba(26,24,23,0.08)', dark: false,
+  font: '-apple-system, "SF Pro Text", system-ui, sans-serif',
+  fontDisplay: '-apple-system, "SF Pro Display", system-ui, sans-serif',
+  numWeight: 300, numLetter: -2,
+};
+
+function ProtoApp() {
+  const theme = THEME;
+  const [goal, setGoal] = React.useState(110);
+
+  const [screen, setScreen] = React.useState('onb-1');
+  const [logOpen, setLogOpen] = React.useState(false);
+  const [weight, setWeight] = React.useState(70);
+  const [activity, setActivity] = React.useState('beginner');
+  const [logs, setLogs] = React.useState([
+    { id: 1, foodId: 'kaya-toast', name: 'Kaya toast set', protein: 10, time: '8:12a' },
+    { id: 2, foodId: 'chx-rice',   name: 'Chicken rice',   protein: 28, time: '12:40p' },
+    { id: 3, foodId: 'soya-bean',  name: 'Soya bean milk', protein:  7, time: '3:05p' },
+  ]);
+  const [history, setHistory] = React.useState([78, 92, 64, 110, 88, 102]);
+  const todayTotal = logs.reduce((s, l) => s + l.protein, 0);
+  const pct = Math.min(1, todayTotal / goal);
+
+  const goalFromWeight = (w, a) => {
+    const ratio = a === 'beginner' ? 1.4 : a === 'moderate' ? 1.6 : 1.8;
+    return Math.round((w * ratio) / 5) * 5;
+  };
+
+  const addFood = (food) => {
+    const now = new Date();
+    const h = now.getHours(), m = now.getMinutes();
+    const time = `${h % 12 || 12}:${String(m).padStart(2,'0')}${h >= 12 ? 'p' : 'a'}`;
+    setLogs(prev => [...prev, { id: Date.now(), foodId: food.id, name: food.name, protein: food.protein, time }]);
+    setLogOpen(false);
+  };
+  const removeLog = (id) => setLogs(prev => prev.filter(l => l.id !== id));
+  const updateLog = (id, patch) => setLogs(prev => prev.map(l => l.id === id ? { ...l, ...patch } : l));
+
+  const [editing, setEditing] = React.useState(null);
+  const openCustomFood = () => { setLogOpen(false); setEditing({ isCustom: true }); };
+  const saveEditing = ({ name, protein, time }) => {
+    if (editing?.isCustom) {
+      setLogs(prev => [...prev, { id: Date.now(), foodId: 'custom', name, protein, time }]);
+    } else if (editing) {
+      updateLog(editing.id, { name, protein, time });
+    }
+    setEditing(null);
+  };
+  const deleteEditing = () => {
+    if (editing && !editing.isCustom) removeLog(editing.id);
+    setEditing(null);
+  };
+
+  let body;
+  if (screen === 'onb-1')   body = <Onboarding1 T={theme} singlish="calm" onNext={() => setScreen('onb-2')} />;
+  else if (screen === 'onb-2') body = <Onboarding2 T={theme} weight={weight} setWeight={setWeight} activity={activity} setActivity={setActivity} onNext={() => setScreen('onb-3')} onBack={() => setScreen('onb-1')} />;
+  else if (screen === 'onb-3') body = <Onboarding3 T={theme} weight={weight} activity={activity} suggestedGoal={goalFromWeight(weight, activity)} goal={goal} setGoal={setGoal} onDone={() => setScreen('today')} onBack={() => setScreen('onb-2')} singlish="calm" />;
+  else if (screen === 'today') body = <Today T={theme} logs={logs} todayTotal={todayTotal} goal={goal} pct={pct} onLog={() => setLogOpen(true)} onRemove={removeLog} onEdit={(log) => setEditing(log)} singlish="calm" showWeekChart={true} history={history} />;
+  else if (screen === 'week')    body = <Week T={theme} history={history} todayTotal={todayTotal} goal={goal} singlish="calm" />;
+  else if (screen === 'profile') body = <Profile T={theme} goal={goal} setGoal={setGoal} weight={weight} activity={activity} onResetOnboarding={() => setScreen('onb-1')} />;
+
+  const showTabs = screen === 'today' || screen === 'week' || screen === 'profile';
+
+  return (
+    <div style={{
+      width: '100%', height: '100%', position: 'relative',
+      background: theme.bg, color: theme.ink,
+      fontFamily: theme.font,
+    }}>
+      <div style={{ position: 'absolute', inset: 0, paddingBottom: showTabs ? 76 : 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+          {body}
+        </div>
+      </div>
+
+      {showTabs && <TabBar T={theme} screen={screen} setScreen={setScreen} onLog={() => setLogOpen(true)} />}
+
+      <LogSheet open={logOpen} onClose={() => setLogOpen(false)} onAdd={addFood} onAddCustom={openCustomFood} T={theme} variant="tiles" todayTotal={todayTotal} goal={goal} />
+
+      <EditLogSheet editing={editing} T={theme} onClose={() => setEditing(null)} onSave={saveEditing} onDelete={deleteEditing} />
+
+    </div>
+  );
+}
+
+// ── ONBOARDING ──────────────────────────────────────────────
+
+function Onboarding1({ T, onNext, singlish }) {
+  return (
+    <div style={{ height: '100%', padding: '90px 28px 40px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{
+        width: 56, height: 56, borderRadius: 16,
+        background: T.accentSoft, color: T.accent,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <svg width="30" height="30" viewBox="0 0 30 30">
+          <circle cx="15" cy="15" r="11" fill="none" stroke="currentColor" strokeWidth="2.5" opacity="0.25"/>
+          <circle cx="15" cy="15" r="11" fill="none" stroke="currentColor" strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeDasharray={`${0.65 * 2 * Math.PI * 11} ${2 * Math.PI * 11}`}
+            transform="rotate(-90 15 15)"/>
+          <circle cx="15" cy="15" r="2.5" fill="currentColor"/>
+        </svg>
+      </div>
+
+      <div style={{
+        marginTop: 24, fontFamily: T.fontDisplay,
+        fontSize: 40, lineHeight: 1.05, letterSpacing: -1.2, fontWeight: T.numWeight + 200,
+        color: T.ink,
+      }}>
+        {singlish === 'cheeky' ? <>Eat enough<br/>protein, lah?</> : <>Hit your<br/>protein goal.</>}
+      </div>
+      <div style={{ marginTop: 14, fontSize: 16, color: T.muted, lineHeight: 1.45, maxWidth: 280 }}>
+        {singlish === 'cheeky'
+          ? "Just three things: set a goal, log what you eat, see if you hit. No calorie counting nonsense."
+          : "Set a daily goal, log meals in seconds, and track your weekly progress. No calorie counting."}
+      </div>
+
+      <div style={{ flex: 1 }}/>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <BigButton T={T} onClick={onNext}>Get started</BigButton>
+        <div style={{ textAlign: 'center', fontSize: 13, color: T.muted, padding: 6 }}>
+          Takes about 30 seconds.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Onboarding2({ T, weight, setWeight, activity, setActivity, onNext, onBack }) {
+  return (
+    <div style={{ height: '100%', padding: '70px 24px 30px', display: 'flex', flexDirection: 'column' }}>
+      <OnbHeader T={T} step={2} total={3} onBack={onBack} />
+      <div style={{ marginTop: 20, fontFamily: T.fontDisplay, fontSize: 30, letterSpacing: -0.6, lineHeight: 1.1, fontWeight: T.numWeight + 200 }}>
+        A bit about you.
+      </div>
+      <div style={{ marginTop: 6, fontSize: 14, color: T.muted, lineHeight: 1.45 }}>
+        We use this to suggest a sensible starting goal.
+      </div>
+
+      <div style={{ marginTop: 28, fontSize: 11, color: T.muted, fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase' }}>Weight</div>
+      <div style={{ marginTop: 8, padding: '20px 18px', background: T.surface, border: `1px solid ${T.line}`, borderRadius: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <div style={{ fontFamily: T.fontDisplay, fontSize: 60, lineHeight: 1, letterSpacing: T.numLetter, fontWeight: T.numWeight, fontVariantNumeric: 'tabular-nums' }}>{weight}</div>
+          <div style={{ fontSize: 18, color: T.muted }}>kg</div>
+        </div>
+        <input type="range" min={40} max={120} value={weight} onChange={(e) => setWeight(+e.target.value)}
+          style={{ width: '100%', marginTop: 14, accentColor: T.accent }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: T.muted, fontVariantNumeric: 'tabular-nums' }}>
+          <span>40kg</span><span>120kg</span>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 22, fontSize: 11, color: T.muted, fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase' }}>How often do you lift?</div>
+      <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {[
+          { id: 'beginner', label: 'Just starting',    sub: '0–2× / week · 1.4g/kg' },
+          { id: 'moderate', label: 'Few times a week',  sub: '3–4× / week · 1.6g/kg' },
+          { id: 'serious',  label: 'Almost daily',      sub: '5+× / week · 1.8g/kg' },
+        ].map(opt => (
+          <div key={opt.id} onClick={() => setActivity(opt.id)} style={{
+            background: T.surface, padding: '14px 16px',
+            border: `1.5px solid ${activity === opt.id ? T.accent : T.line}`,
+            borderRadius: 14, display: 'flex', alignItems: 'center', gap: 12,
+            cursor: 'pointer',
+          }}>
+            <div style={{
+              width: 22, height: 22, borderRadius: 11,
+              border: `2px solid ${activity === opt.id ? T.accent : T.muted}`,
+              background: activity === opt.id ? T.accent : 'transparent',
+              flexShrink: 0, position: 'relative',
+            }}>
+              {activity === opt.id && <div style={{ position: 'absolute', inset: 4, borderRadius: 6, background: T.surface }}/>}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: T.ink }}>{opt.label}</div>
+              <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{opt.sub}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ flex: 1 }}/>
+      <BigButton T={T} onClick={onNext}>Continue</BigButton>
+    </div>
+  );
+}
+
+function Onboarding3({ T, weight, activity, suggestedGoal, goal, setGoal, onDone, onBack, singlish }) {
+  return (
+    <div style={{ height: '100%', padding: '70px 24px 30px', display: 'flex', flexDirection: 'column' }}>
+      <OnbHeader T={T} step={3} total={3} onBack={onBack} />
+      <div style={{ marginTop: 20, fontFamily: T.fontDisplay, fontSize: 30, letterSpacing: -0.6, lineHeight: 1.1, fontWeight: T.numWeight + 200 }}>
+        Your daily goal.
+      </div>
+      <div style={{ marginTop: 6, fontSize: 14, color: T.muted, lineHeight: 1.45 }}>
+        {singlish === 'cheeky'
+          ? `Based on ${weight}kg & "${activity}". You can change anytime.`
+          : `Based on ${weight}kg and your activity. Adjustable anytime.`}
+      </div>
+
+      <div style={{ marginTop: 32, padding: '32px 22px', background: T.surface, border: `1.5px solid ${T.line}`, borderRadius: 22, textAlign: 'center' }}>
+        <div style={{ fontSize: 12, color: T.muted, fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase' }}>Daily protein</div>
+        <div style={{ fontFamily: T.fontDisplay, fontSize: 100, lineHeight: 1, letterSpacing: T.numLetter, fontWeight: T.numWeight, fontVariantNumeric: 'tabular-nums', color: T.ink, marginTop: 10 }}>
+          {goal}<span style={{ fontSize: 30, color: T.muted, fontWeight: 400, marginLeft: 4 }}>g</span>
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <input type="range" min={50} max={200} value={goal} step={5}
+            onChange={(e) => setGoal(+e.target.value)}
+            style={{ width: '100%', accentColor: T.accent }} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: T.muted }}>
+            <span>50g</span><span>Suggested {suggestedGoal}g</span><span>200g</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 18, padding: '12px 14px', background: T.accentSoft, borderRadius: 12, fontSize: 13, color: T.ink, lineHeight: 1.45 }}>
+        {singlish === 'cheeky'
+          ? <>That's about <b>4–5 meals × {Math.round(goal/4)}g</b> each. Mixed rice 2 meat is ~35g. Easy.</>
+          : <>That's roughly {Math.round(goal/4)}g across 4–5 meals. A mixed rice with 2 meat is ~35g.</>}
+      </div>
+
+      <div style={{ flex: 1 }}/>
+      <BigButton T={T} onClick={onDone}>Looks good</BigButton>
+    </div>
+  );
+}
+
+function OnbHeader({ T, step, total, onBack }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+      <button onClick={onBack} style={{
+        all: 'unset', cursor: 'pointer',
+        width: 36, height: 36, borderRadius: 18,
+        background: T.surface, border: `1px solid ${T.line}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.ink,
+      }}>
+        <svg width="10" height="16" viewBox="0 0 10 16"><path d="M8 2L2 8l6 6" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round"/></svg>
+      </button>
+      <div style={{ flex: 1, height: 4, background: T.line, borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ width: `${(step/total)*100}%`, height: '100%', background: T.accent, transition: 'width .3s' }}/>
+      </div>
+      <div style={{ fontSize: 12, color: T.muted, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{step}/{total}</div>
+    </div>
+  );
+}
+
+function BigButton({ T, onClick, children }) {
+  return (
+    <button onClick={onClick} style={{
+      all: 'unset', cursor: 'pointer',
+      height: 56, borderRadius: 999,
+      background: T.ink, color: T.bg,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: 16, fontWeight: 600, letterSpacing: -0.2,
+      fontFamily: T.font,
+    }}>{children}</button>
+  );
+}
+
+// ── TODAY ───────────────────────────────────────────────────
+
+function Today({ T, logs, todayTotal, goal, pct, onLog, onRemove, onEdit, singlish, showWeekChart, history }) {
+  const remaining = Math.max(0, goal - todayTotal);
+  const ringR = 86, ringC = 2 * Math.PI * ringR;
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
+  const name = 'Wei';
+  const dateStr = new Date().toLocaleDateString('en-SG', { weekday: 'long', day: 'numeric', month: 'short' });
+
+  const subtitle = (() => {
+    if (todayTotal >= goal) return singlish === 'cheeky' ? "Wah, hit goal liao 💪 Steady la." : "Goal hit. Solid day.";
+    if (todayTotal === 0)   return singlish === 'cheeky' ? "Eh, nothing logged yet. Start with breakfast?" : "Nothing logged yet. A kaya toast set is a good start.";
+    if (remaining <= 25)    return singlish === 'cheeky' ? `Only ${remaining}g more leh. One shake & confirm hit.` : `${remaining}g left. A protein shake closes it.`;
+    return singlish === 'cheeky' ? `${remaining}g to go. One chicken rice is ~28g.` : `${remaining}g remaining. A chicken rice is ~28g.`;
+  })();
+
+  return (
+    <div style={{ padding: '60px 0 12px' }}>
+      <div style={{ padding: '8px 22px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 12, color: T.muted, letterSpacing: 0.2, textTransform: 'capitalize' }}>{dateStr}</div>
+          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.3, marginTop: 2, fontFamily: T.fontDisplay }}>
+            {greet}, {name}.
+          </div>
+        </div>
+        <div style={{
+          width: 38, height: 38, borderRadius: 19,
+          background: T.surface, border: `1px solid ${T.line}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 13, color: T.muted, fontWeight: 600,
+        }}>{name[0]}</div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22 }}>
+        <div style={{ position: 'relative', width: 220, height: 220 }}>
+          <svg width="220" height="220" viewBox="0 0 220 220">
+            <circle cx="110" cy="110" r={ringR} fill="none" stroke={T.line} strokeWidth="6"/>
+            <circle cx="110" cy="110" r={ringR} fill="none"
+              stroke={T.accent} strokeWidth="6" strokeLinecap="round"
+              strokeDasharray={`${ringC} ${ringC}`}
+              strokeDashoffset={ringC * (1 - pct)}
+              transform="rotate(-90 110 110)"
+              style={{ transition: 'stroke-dashoffset .6s cubic-bezier(.2,.7,.2,1)', filter: T.dark ? `drop-shadow(0 0 8px ${T.accent}66)` : 'none' }}/>
+          </svg>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ fontSize: 64, fontWeight: T.numWeight, letterSpacing: T.numLetter, fontVariantNumeric: 'tabular-nums', lineHeight: 1, fontFamily: T.fontDisplay }}>
+              {todayTotal}<span style={{ fontSize: 24, color: T.muted, fontWeight: 400, marginLeft: 2 }}>g</span>
+            </div>
+            <div style={{ fontSize: 12, color: T.muted, marginTop: 8, letterSpacing: 0.4, fontVariantNumeric: 'tabular-nums' }}>
+              of {goal}g · {Math.round(pct*100)}%
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ textAlign: 'center', marginTop: 12, padding: '0 32px', fontSize: 14, color: T.muted, lineHeight: 1.45 }}>
+        {subtitle}
+      </div>
+
+      <div style={{ padding: '20px 16px 0' }}>
+        <button onClick={onLog} style={{
+          all: 'unset', cursor: 'pointer',
+          height: 54, width: '100%', borderRadius: 999,
+          background: T.ink, color: T.bg,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 16, fontWeight: 600, letterSpacing: -0.2, fontFamily: T.font,
+        }}>
+          <span style={{ marginRight: 8, fontSize: 22, lineHeight: 0 }}>+</span> Log food
+        </button>
+      </div>
+
+      <div style={{ padding: '24px 16px 8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 8px' }}>
+          <div style={{ fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>Today's log</div>
+          <div style={{ fontSize: 11, color: T.muted, fontVariantNumeric: 'tabular-nums' }}>{logs.length} item{logs.length !== 1 ? 's' : ''}</div>
+        </div>
+        {logs.length === 0 ? (
+          <div style={{ background: T.surface, borderRadius: 16, border: `1px dashed ${T.line}`, padding: '28px 18px', textAlign: 'center' }}>
+            <div style={{ fontSize: 14, color: T.muted }}>
+              {singlish === 'cheeky' ? "No log no eat ah?" : "Nothing logged yet."}
+            </div>
+          </div>
+        ) : (
+          <div style={{ background: T.surface, borderRadius: 16, border: `1px solid ${T.line}`, overflow: 'hidden' }}>
+            {logs.map((l, i) => (
+              <LogRow key={l.id} log={l} last={i === logs.length - 1} T={T} onRemove={onRemove} onEdit={onEdit} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {showWeekChart && (
+        <div style={{ padding: '20px 16px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 8px' }}>
+            <div style={{ fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>Last 7 days</div>
+            <div style={{ fontSize: 11, color: T.muted, fontVariantNumeric: 'tabular-nums' }}>
+              {history.filter(h => h >= goal).length + (todayTotal >= goal ? 1 : 0)}/7 hit
+            </div>
+          </div>
+          <div style={{ background: T.surface, borderRadius: 16, border: `1px solid ${T.line}`, padding: '20px 18px 18px' }}>
+            <WeekBars T={T} data={[...history, todayTotal]} goal={goal} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LogRow({ log, last, T, onRemove, onEdit }) {
+  const b = window.proteinBucket(log.protein);
+  return (
+    <div onClick={() => onEdit && onEdit(log)} style={{
+      display: 'flex', alignItems: 'center',
+      padding: '14px 16px', cursor: 'pointer',
+      borderBottom: last ? 'none' : `1px solid ${T.line}`,
+    }}>
+      <div style={{ width: 10, height: 10, borderRadius: 5, background: window.tierColor(log.protein), marginRight: 12, flexShrink: 0 }}/>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 15, color: T.ink, fontWeight: 500 }}>{log.name}</div>
+        <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{log.time} · {b.label}</div>
+      </div>
+      <div style={{ fontSize: 15, color: T.ink, fontVariantNumeric: 'tabular-nums', fontWeight: 600, marginRight: 8 }}>
+        {log.protein}<span style={{ color: T.muted, fontWeight: 400 }}>g</span>
+      </div>
+      <button onClick={(e) => { e.stopPropagation(); onRemove(log.id); }} style={{
+        all: 'unset', cursor: 'pointer',
+        width: 28, height: 28, borderRadius: 14,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: T.muted, fontSize: 18,
+      }}>×</button>
+    </div>
+  );
+}
+
+// ── WEEK ────────────────────────────────────────────────────
+
+function Week({ T, history, todayTotal, goal, singlish }) {
+  const data = [...history, todayTotal];
+  const hits = data.filter(d => d >= goal).length;
+  const avg = Math.round(data.reduce((s,v) => s+v, 0) / 7);
+  return (
+    <div style={{ padding: '60px 16px 12px' }}>
+      <div style={{ padding: '8px 8px 18px' }}>
+        <div style={{ fontSize: 12, color: T.muted, letterSpacing: 0.2 }}>Past 7 days</div>
+        <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: -0.4, marginTop: 2, fontFamily: T.fontDisplay }}>
+          {singlish === 'cheeky' ? <>{hits} days hit. {hits >= 5 ? 'Steady la.' : 'Boleh better.'}</> : <>{hits} of 7 days at goal</>}
+        </div>
+      </div>
+
+      <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 18, padding: '20px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: T.muted, fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 14 }}>
+          <span>Daily protein (g)</span>
+          <span style={{ fontVariantNumeric: 'tabular-nums' }}>avg {avg}g · goal {goal}g</span>
+        </div>
+        <WeekBars T={T} data={data} goal={goal} tall />
+      </div>
+
+      <div style={{ padding: '18px 8px 8px', fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
+        Insights
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <Insight T={T} title="Strongest day" body="Wed · 110g — chicken breast + Greek yogurt did the work." />
+        <Insight T={T} title="Common gap" body={`You're often ~${goal - avg}g short. A protein shake or eggs closes it.`} />
+      </div>
+    </div>
+  );
+}
+
+function Insight({ T, title, body }) {
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 14, padding: '14px 16px' }}>
+      <div style={{ fontSize: 11, color: T.accent, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase' }}>{title}</div>
+      <div style={{ fontSize: 14, color: T.ink, marginTop: 4, lineHeight: 1.45 }}>{body}</div>
+    </div>
+  );
+}
+
+function WeekBars({ T, data, goal, tall }) {
+  const days = ['M','T','W','T','F','S','S'];
+  const max = Math.max(goal * 1.1, ...data);
+  const H = tall ? 160 : 90;
+  return (
+    <div style={{ position: 'relative', height: H + 22, display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: `${(goal/max)*H + 22}px`, height: 1, borderTop: `1px dashed ${T.line}` }}>
+        <span style={{ position: 'absolute', right: 0, top: -15, fontSize: 9, color: T.muted, letterSpacing: 1, textTransform: 'uppercase', fontWeight: 600, background: T.surface, padding: '0 4px' }}>
+          goal {goal}g
+        </span>
+      </div>
+      {data.map((v, i) => {
+        const h = (v / max) * H;
+        const hit = v >= goal;
+        const isToday = i === data.length - 1;
+        return (
+          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, justifyContent: 'flex-end', height: '100%' }}>
+            <div style={{ fontSize: 9, color: hit ? T.accent : T.muted, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{v}</div>
+            <div style={{
+              width: '100%', height: `${h}px`,
+              background: hit ? T.accent : (T.dark ? '#3a3a3a' : T.surface2),
+              borderRadius: 4, minHeight: 4,
+              border: isToday ? `1.5px solid ${T.ink}` : 'none',
+              transition: 'height .4s',
+            }}/>
+            <div style={{ fontSize: 11, color: isToday ? T.ink : T.muted, fontWeight: isToday ? 700 : 500 }}>{days[i]}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── PROFILE ─────────────────────────────────────────────────
+
+function Profile({ T, goal, setGoal, weight, activity, onResetOnboarding }) {
+  return (
+    <div style={{ padding: '60px 16px 12px' }}>
+      <div style={{ padding: '8px 8px 18px' }}>
+        <div style={{ fontSize: 12, color: T.muted, letterSpacing: 0.2 }}>You</div>
+        <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: -0.4, marginTop: 2, fontFamily: T.fontDisplay }}>Settings</div>
+      </div>
+
+      <SettingsCard T={T} title="Daily protein goal" detail={`${goal}g`}>
+        <input type="range" min={50} max={200} value={goal} step={5}
+          onChange={(e) => setGoal(+e.target.value)}
+          style={{ width: '100%', accentColor: T.accent, marginTop: 8 }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: T.muted, marginTop: 2 }}>
+          <span>50g</span><span>200g</span>
+        </div>
+      </SettingsCard>
+
+      <SettingsCard T={T} title="About you">
+        <Row T={T} k="Weight"   v={`${weight} kg`} />
+        <Row T={T} k="Activity" v={activity[0].toUpperCase() + activity.slice(1)} last />
+      </SettingsCard>
+
+      <SettingsCard T={T} title="App">
+        <Row T={T} k="Units" v="grams" />
+        <Row T={T} k="Theme" v="System" />
+        <Row T={T} k="About" v=""      last />
+      </SettingsCard>
+
+      <button onClick={onResetOnboarding} style={{
+        all: 'unset', cursor: 'pointer',
+        width: '100%', boxSizing: 'border-box',
+        marginTop: 14, padding: '14px 16px',
+        background: 'transparent', border: `1px solid ${T.line}`,
+        borderRadius: 14, fontSize: 14, color: T.muted, textAlign: 'center',
+      }}>Re-run onboarding</button>
+    </div>
+  );
+}
+
+function SettingsCard({ T, title, detail, children }) {
+  return (
+    <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '14px 16px 12px', marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <div style={{ fontSize: 11, color: T.muted, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase' }}>{title}</div>
+        {detail && <div style={{ fontSize: 13, color: T.ink, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{detail}</div>}
+      </div>
+      <div style={{ marginTop: 6 }}>{children}</div>
+    </div>
+  );
+}
+
+function Row({ T, k, v, last }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: last ? 'none' : `1px solid ${T.line}` }}>
+      <div style={{ fontSize: 14, color: T.ink }}>{k}</div>
+      <div style={{ fontSize: 14, color: T.muted, fontVariantNumeric: 'tabular-nums' }}>{v}</div>
+    </div>
+  );
+}
+
+// ── TAB BAR ─────────────────────────────────────────────────
+
+function TabBar({ T, screen, setScreen }) {
+  const Item = ({ id, label, icon }) => (
+    <button onClick={() => setScreen(id)} style={{
+      all: 'unset', cursor: 'pointer',
+      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+      color: screen === id ? T.ink : T.muted,
+      paddingTop: 8,
+    }}>
+      {icon}
+      <div style={{ fontSize: 10, fontWeight: screen === id ? 700 : 500, letterSpacing: 0.4 }}>{label}</div>
+    </button>
+  );
+  return (
+    <div style={{
+      position: 'absolute', left: 0, right: 0, bottom: 0,
+      height: 76, paddingBottom: 16,
+      background: T.bg, borderTop: `1px solid ${T.line}`,
+      display: 'flex', alignItems: 'flex-start', zIndex: 30,
+    }}>
+      <Item id="today" label="Today" icon={
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <path d="M3 9l8-6 8 6v9a1 1 0 01-1 1h-5v-6h-4v6H4a1 1 0 01-1-1V9z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+        </svg>
+      } />
+      <Item id="week" label="Stats" icon={
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <rect x="3" y="11" width="3" height="8" rx="1" stroke="currentColor" strokeWidth="1.6"/>
+          <rect x="9.5" y="5" width="3" height="14" rx="1" stroke="currentColor" strokeWidth="1.6"/>
+          <rect x="16" y="8" width="3" height="11" rx="1" stroke="currentColor" strokeWidth="1.6"/>
+        </svg>
+      } />
+      <Item id="profile" label="You" icon={
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <circle cx="11" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.6"/>
+          <path d="M4 19c1-3.5 4-5 7-5s6 1.5 7 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
+        </svg>
+      } />
+    </div>
+  );
+}
+
+// ── LOG SHEET ────────────────────────────────────────────────
+
+window.TIER_COLORS = { low: '#C9B07D', med: '#D89233', high: '#2D6B47' };
+window.tierColor = function (g) {
+  if (g >= 25) return window.TIER_COLORS.high;
+  if (g >= 12) return window.TIER_COLORS.med;
+  return window.TIER_COLORS.low;
+};
+
+function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, goal }) {
+  const [mounted, setMounted] = React.useState(open);
+  const [shown, setShown] = React.useState(false);
+  const [query, setQuery] = React.useState('');
+  React.useEffect(() => {
+    if (open) {
+      setMounted(true);
+      setQuery('');
+      requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)));
+    } else {
+      setShown(false);
+      const t = setTimeout(() => setMounted(false), 280);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+  if (!mounted) return null;
+
+  return (
+    <>
+      <div onClick={onClose} style={{
+        position: 'absolute', inset: 0, zIndex: 80,
+        background: shown ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0)',
+        transition: 'background .25s',
+      }}/>
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 90,
+        background: T.bg, borderRadius: '24px 24px 0 0',
+        maxHeight: '82%', display: 'flex', flexDirection: 'column',
+        boxShadow: '0 -12px 30px rgba(0,0,0,0.18)',
+        transform: shown ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform .28s cubic-bezier(.2,.7,.2,1)',
+      }}>
+        <div style={{ padding: '10px 0 0', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ width: 38, height: 5, borderRadius: 3, background: T.line }}/>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 18px 4px' }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 700, fontFamily: T.fontDisplay, letterSpacing: -0.3 }}>Log food</div>
+            <div style={{ fontSize: 12, color: T.muted, marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>{todayTotal}g of {goal}g today</div>
+          </div>
+          <button onClick={onClose} style={{
+            all: 'unset', cursor: 'pointer',
+            width: 32, height: 32, borderRadius: 16,
+            background: T.surface, border: `1px solid ${T.line}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: T.muted, fontSize: 14,
+          }}>✕</button>
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0 24px' }}>
+          {variant === 'tiles'   && <SheetTiles   T={T} onAdd={onAdd} onAddCustom={onAddCustom} query={query} setQuery={setQuery} />}
+          {variant === 'search'  && <SheetSearch  T={T} onAdd={onAdd} onAddCustom={onAddCustom} query={query} setQuery={setQuery} />}
+          {variant === 'recents' && <SheetRecents T={T} onAdd={onAdd} onAddCustom={onAddCustom} query={query} setQuery={setQuery} />}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function SearchInput({ T, query, setQuery, placeholder = 'Search local food…' }) {
+  return (
+    <div style={{ margin: '4px 16px 0', background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <circle cx="7" cy="7" r="5" stroke={T.muted} strokeWidth="1.5"/>
+        <path d="M11 11l3 3" stroke={T.muted} strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={placeholder}
+        style={{ all: 'unset', flex: 1, fontSize: 15, color: T.ink, fontFamily: T.font }} />
+      {query && (
+        <button onClick={() => setQuery('')} style={{ all: 'unset', cursor: 'pointer', color: T.muted, fontSize: 14 }}>✕</button>
+      )}
+    </div>
+  );
+}
+
+function FoodCard({ f, T, onAdd, compact }) {
+  const b = window.proteinBucket(f.protein);
+  const swatch = window.tierColor(f.protein);
+  return (
+    <button onClick={() => onAdd(f)} style={{
+      all: 'unset', cursor: 'pointer',
+      background: T.surface, border: `1px solid ${T.line}`,
+      borderRadius: 14, padding: compact ? '10px 12px' : '14px 12px',
+      display: 'flex', flexDirection: compact ? 'row' : 'column', gap: compact ? 10 : 8,
+      alignItems: compact ? 'center' : 'flex-start',
+      minHeight: compact ? 'auto' : 88,
+    }}>
+      <div style={{ width: 28, height: 28, borderRadius: 7, background: swatch, flexShrink: 0 }}/>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: compact ? 13 : 14, fontWeight: 600, color: T.ink, lineHeight: 1.25, letterSpacing: -0.2,
+          whiteSpace: compact ? 'nowrap' : 'normal', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {f.name}
+        </div>
+        <div style={{ fontSize: 11, color: T.muted, marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+          {f.protein}g · {b.label}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function SheetTiles({ T, onAdd, onAddCustom, query, setQuery }) {
+  const foods = window.SG_FOODS;
+  const cats = [
+    { id: 'all',     label: 'All',     match: () => true },
+    { id: 'rice',    label: 'Rice',    match: f => f.cat === 'rice' },
+    { id: 'noodles', label: 'Noodles', match: f => f.cat === 'noodles' },
+    { id: 'protein', label: 'Protein', match: f => f.cat === 'protein' },
+    { id: 'snack',   label: 'Snacks',  match: f => f.cat === 'snack' },
+    { id: 'drink',   label: 'Drinks',  match: f => f.cat === 'drink' },
+  ];
+  const [activeCat, setActiveCat] = React.useState('all');
+  const filtered = foods
+    .filter(cats.find(c => c.id === activeCat).match)
+    .filter(f => !query || f.name.toLowerCase().includes(query.toLowerCase()));
+
+  return (
+    <div>
+      <SearchInput T={T} query={query} setQuery={setQuery} />
+      <div style={{ display: 'flex', gap: 8, padding: '14px 16px 4px', overflowX: 'auto' }}>
+        {cats.map(c => (
+          <button key={c.id} onClick={() => setActiveCat(c.id)} style={{
+            all: 'unset', cursor: 'pointer', flexShrink: 0,
+            padding: '8px 14px', borderRadius: 999,
+            background: activeCat === c.id ? T.ink : T.surface,
+            color:      activeCat === c.id ? T.bg  : T.ink,
+            border: `1px solid ${activeCat === c.id ? T.ink : T.line}`,
+            fontSize: 13, fontWeight: 500,
+          }}>{c.label}</button>
+        ))}
+      </div>
+      <div style={{ fontSize: 11, color: T.muted, padding: '14px 24px 8px', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
+        {query ? `${filtered.length} match${filtered.length !== 1 ? 'es' : ''}` : 'Tap to log'}
+      </div>
+      <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <button onClick={onAddCustom} style={{
+          all: 'unset', cursor: 'pointer',
+          background: T.accentSoft, border: `1px dashed ${T.accent}`,
+          borderRadius: 14, padding: '14px 12px',
+          display: 'flex', flexDirection: 'column', gap: 8, minHeight: 88,
+          color: T.accent,
+        }}>
+          <div style={{ width: 28, height: 28, borderRadius: 7, background: T.accent, color: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 300, lineHeight: 1 }}>+</div>
+          <div style={{ fontSize: 14, fontWeight: 600, lineHeight: 1.25, letterSpacing: -0.2 }}>Custom food</div>
+          <div style={{ fontSize: 12, opacity: 0.85 }}>Name + grams</div>
+        </button>
+        {filtered.map(f => <FoodCard key={f.id} f={f} T={T} onAdd={onAdd} />)}
+      </div>
+    </div>
+  );
+}
+
+function SheetSearch({ T, onAdd, onAddCustom, query, setQuery }) {
+  const foods = window.SG_FOODS;
+  const matches = query ? foods.filter(f => f.name.toLowerCase().includes(query.toLowerCase())).slice(0, 8) : [];
+  const popular = foods.filter(f => f.pop);
+  return (
+    <div>
+      <SearchInput T={T} query={query} setQuery={setQuery} placeholder="Type to search (e.g. 'chicken')" />
+      {query ? (
+        <>
+          <div style={{ fontSize: 11, color: T.muted, padding: '14px 24px 8px', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
+            {matches.length} match{matches.length !== 1 ? 'es' : ''}
+          </div>
+          <div style={{ padding: '0 16px' }}>
+            {matches.length === 0 ? (
+              <button onClick={() => onAdd({ id: 'custom-' + Date.now(), name: query, protein: 20 })} style={{
+                all: 'unset', cursor: 'pointer', width: '100%', boxSizing: 'border-box',
+                background: T.accentSoft, color: T.accent,
+                border: `1px dashed ${T.accent}`,
+                borderRadius: 14, padding: '14px 16px',
+                display: 'flex', alignItems: 'center', gap: 12,
+              }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: T.accent, color: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 300 }}>+</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>Add "{query}" as custom</div>
+                  <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>Estimate the grams — it's fine.</div>
+                </div>
+              </button>
+            ) : (
+              <div style={{ background: T.surface, borderRadius: 16, border: `1px solid ${T.line}`, overflow: 'hidden' }}>
+                {matches.map((f, i) => (
+                  <div key={f.id} onClick={() => onAdd(f)} style={{
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '14px 16px',
+                    borderBottom: i === matches.length - 1 ? 'none' : `1px solid ${T.line}`,
+                  }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 5, background: window.tierColor(f.protein) }}/>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 15, color: T.ink, fontWeight: 500 }}>{highlight(f.name, query, T)}</div>
+                      <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{f.protein}g · {window.proteinBucket(f.protein).label}</div>
+                    </div>
+                    <div style={{ width: 30, height: 30, borderRadius: 15, background: T.accent, color: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 300 }}>+</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: 11, color: T.muted, padding: '14px 24px 8px', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>Popular</div>
+          <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {popular.map(f => <FoodCard key={f.id} f={f} T={T} onAdd={onAdd} />)}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function highlight(text, q, T) {
+  if (!q) return text;
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return text;
+  return (
+    <>
+      {text.slice(0, i)}
+      <span style={{ background: T.accentSoft, color: T.accent, padding: '0 2px', borderRadius: 3 }}>{text.slice(i, i+q.length)}</span>
+      {text.slice(i+q.length)}
+    </>
+  );
+}
+
+function SheetRecents({ T, onAdd, onAddCustom, query, setQuery }) {
+  const recents = ['chx-rice','soya-bean','kaya-toast','protein-shake','mixed-rice'].map(id => window.SG_FOODS.find(f => f.id === id)).filter(Boolean);
+  const favs    = ['chx-breast','yong-tau-foo','greek-yogurt','boiled-egg'].map(id => window.SG_FOODS.find(f => f.id === id)).filter(Boolean);
+  const filter  = (arr) => !query ? arr : arr.filter(f => f.name.toLowerCase().includes(query.toLowerCase()));
+
+  return (
+    <div>
+      <SearchInput T={T} query={query} setQuery={setQuery} placeholder="Search or pick from below" />
+      <div style={{ fontSize: 11, color: T.muted, padding: '14px 24px 8px', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>Recent</div>
+      <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {filter(recents).map(f => <FoodCard key={f.id} f={f} T={T} onAdd={onAdd} compact />)}
+      </div>
+      <div style={{ fontSize: 11, color: T.muted, padding: '18px 24px 8px', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>Favorites</div>
+      <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {filter(favs).map(f => <FoodCard key={f.id} f={f} T={T} onAdd={onAdd} compact />)}
+      </div>
+    </div>
+  );
+}
+
+// ── EDIT LOG SHEET ───────────────────────────────────────────
+
+function EditLogSheet({ editing, T, onClose, onSave, onDelete }) {
+  const open = editing != null;
+  const [mounted, setMounted] = React.useState(false);
+  const [shown, setShown] = React.useState(false);
+  const [name, setName] = React.useState('');
+  const [protein, setProtein] = React.useState(20);
+  const [time, setTime] = React.useState('12:00');
+
+  React.useEffect(() => {
+    if (open) {
+      setMounted(true);
+      if (editing.isCustom) {
+        setName(''); setProtein(20); setTime(format24Now());
+      } else {
+        setName(editing.name); setProtein(editing.protein); setTime(timeTo24(editing.time));
+      }
+      requestAnimationFrame(() => requestAnimationFrame(() => setShown(true)));
+    } else {
+      setShown(false);
+      const t = setTimeout(() => setMounted(false), 280);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
+  if (!mounted) return null;
+
+  const canSave = name.trim().length > 0 && protein > 0;
+  const isCustom = editing?.isCustom;
+  const save = () => { if (!canSave) return; onSave({ name: name.trim(), protein, time: time24ToDisplay(time) }); };
+
+  return (
+    <>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 100, background: shown ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0)', transition: 'background .25s' }}/>
+      <div style={{
+        position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 110,
+        background: T.bg, borderRadius: '24px 24px 0 0',
+        padding: '12px 20px 28px', display: 'flex', flexDirection: 'column', gap: 14,
+        boxShadow: '0 -12px 30px rgba(0,0,0,0.18)',
+        transform: shown ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform .28s cubic-bezier(.2,.7,.2,1)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <div style={{ width: 38, height: 5, borderRadius: 3, background: T.line }}/>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 700, fontFamily: T.fontDisplay, letterSpacing: -0.3 }}>
+              {isCustom ? 'Custom food' : 'Edit log'}
+            </div>
+            <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>
+              {isCustom ? "Just guess the grams — it's fine." : 'Tap a field to change it.'}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ all: 'unset', cursor: 'pointer', width: 32, height: 32, borderRadius: 16, background: T.surface, border: `1px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: T.muted, fontSize: 14 }}>✕</button>
+        </div>
+
+        <Field T={T} label="Food">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mum's mee goreng"
+            autoFocus={isCustom}
+            style={{ all: 'unset', width: '100%', boxSizing: 'border-box', fontSize: 17, color: T.ink, fontFamily: T.font, padding: '12px 14px', background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12 }} />
+        </Field>
+
+        <Field T={T} label="Protein">
+          <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12, padding: '14px 14px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <div style={{ fontFamily: T.fontDisplay, fontSize: 38, fontWeight: T.numWeight, letterSpacing: -1, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{protein}</div>
+              <div style={{ fontSize: 14, color: T.muted }}>g</div>
+              <div style={{ flex: 1 }}/>
+              <div style={{ fontSize: 11, color: T.accent, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase' }}>{window.proteinBucket(protein).label}</div>
+            </div>
+            <input type="range" min={1} max={80} step={1} value={protein}
+              onChange={(e) => setProtein(+e.target.value)}
+              style={{ width: '100%', marginTop: 8, accentColor: T.accent }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: T.muted, fontVariantNumeric: 'tabular-nums' }}>
+              <span>1g</span><span>80g</span>
+            </div>
+          </div>
+        </Field>
+
+        <Field T={T} label="When">
+          <input type="time" value={time} onChange={(e) => setTime(e.target.value)}
+            style={{ all: 'unset', width: '100%', boxSizing: 'border-box', fontSize: 17, color: T.ink, fontFamily: T.font, padding: '12px 14px', background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12 }} />
+        </Field>
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+          {!isCustom && (
+            <button onClick={onDelete} style={{ all: 'unset', cursor: 'pointer', flex: 0, padding: '0 18px', height: 52, borderRadius: 999, background: 'transparent', border: `1px solid ${T.line}`, color: '#B85C3D', fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Delete</button>
+          )}
+          <button onClick={save} disabled={!canSave} style={{
+            all: 'unset', cursor: canSave ? 'pointer' : 'not-allowed',
+            flex: 1, height: 52, borderRadius: 999,
+            background: canSave ? T.ink : T.surface2,
+            color: canSave ? T.bg : T.muted,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 16, fontWeight: 600, letterSpacing: -0.2,
+          }}>
+            {isCustom ? `Log ${protein}g` : 'Save changes'}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function Field({ T, label, children }) {
+  return (
+    <div>
+      <div style={{ fontSize: 11, color: T.muted, fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6, padding: '0 4px' }}>{label}</div>
+      {children}
+    </div>
+  );
+}
+
+function timeTo24(s) {
+  if (!s) return '12:00';
+  const m = s.match(/^(\d+):(\d+)([ap])$/);
+  if (!m) return s;
+  let [, h, mm, ap] = m;
+  h = parseInt(h, 10);
+  if (ap === 'p' && h !== 12) h += 12;
+  if (ap === 'a' && h === 12) h = 0;
+  return `${String(h).padStart(2,'0')}:${mm}`;
+}
+function time24ToDisplay(s) {
+  const [h, m] = s.split(':').map(Number);
+  const ap = h >= 12 ? 'p' : 'a';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2,'0')}${ap}`;
+}
+function format24Now() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+Object.assign(window, { ProtoApp });
+  </script>
+
+  <!-- ── Entry point ────────────────────────────────────────── -->
+  <script type="text/babel">
+function Standalone() {
+  return (
+    <IOSDevice width={400} height={860} dark={false}>
+      <ProtoApp />
+    </IOSDevice>
+  );
+}
+ReactDOM.createRoot(document.getElementById('stage')).render(<Standalone />);
+  </script>
+
+</body>
+</html>
