@@ -596,7 +596,7 @@ function Today({ T, logs, todayTotal, goal, pct, onLog, onRemove, onEdit, singli
   const ringR = 86, ringC = 2 * Math.PI * ringR;
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
-  const name = 'Wei';
+  const name = 'Clarisse';
   const dateStr = new Date().toLocaleDateString('en-SG', { weekday: 'long', day: 'numeric', month: 'short' });
 
   const subtitle = (() => {
@@ -747,13 +747,26 @@ function Week({ T, history, todayTotal, goal, singlish, topPad = 60 }) {
         <WeekBars T={T} data={data} goal={goal} tall />
       </div>
 
-      <div style={{ padding: '18px 8px 8px', fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
-        Insights
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <Insight T={T} title="Strongest day" body="Wed · 110g — chicken breast + Greek yogurt did the work." />
-        <Insight T={T} title="Common gap" body={`You're often ~${goal - avg}g short. A protein shake or eggs closes it.`} />
-      </div>
+      {data.filter(v => v > 0).length >= 3 && (
+        <>
+          <div style={{ padding: '18px 8px 8px', fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
+            Insights
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {(() => {
+              const maxVal = Math.max(...data);
+              const maxIdx = data.indexOf(maxVal);
+              const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+              return (
+                <>
+                  <Insight T={T} title="Strongest day" body={`${dayNames[maxIdx]} · ${maxVal}g — your best day so far.`} />
+                  {avg < goal && <Insight T={T} title="Common gap" body={`You're averaging ~${goal - avg}g short. Adding eggs or chicken breast closes it fast.`} />}
+                </>
+              );
+            })()}
+          </div>
+        </>
+      )}
     </div>
   );
 }
