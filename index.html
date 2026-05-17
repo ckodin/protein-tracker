@@ -298,28 +298,63 @@ const THEME = {
   numWeight: 300, numLetter: -2,
 };
 
+// ── Persistence helpers ──────────────────────────────────────
+const STORE_KEY = 'pt_v1';
+function loadStore() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { return {}; }
+}
+function saveStore(data) {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch {}
+}
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 function ProtoApp({ isMobile = false }) {
   const theme = THEME;
   const tp = isMobile ? 14 : 60;
-  const [goal, setGoal] = React.useState(110);
 
-  const [screen, setScreen] = React.useState('onb-1');
+  // Load persisted state once on mount
+  const saved = React.useMemo(() => loadStore(), []);
+  const today = todayStr();
+
+  // If it's a new day, roll yesterday's total into history and clear logs
+  const [initialLogs, initialHistory] = React.useMemo(() => {
+    const savedDate = saved.logDate;
+    const savedLogs = saved.logs || [];
+    const savedHistory = saved.history || [0, 0, 0, 0, 0, 0];
+    if (savedDate && savedDate !== today) {
+      const prevTotal = savedLogs.reduce((s, l) => s + l.protein, 0);
+      const hist = [...savedHistory, prevTotal].slice(-6);
+      return [[], hist];
+    }
+    return [savedLogs, savedHistory];
+  }, []);
+
+  const [goal, setGoal] = React.useState(saved.goal || 110);
+  const [screen, setScreen] = React.useState(saved.onboarded ? 'today' : 'onb-1');
   const [logOpen, setLogOpen] = React.useState(false);
-  const [weight, setWeight] = React.useState(70);
-  const [activity, setActivity] = React.useState('beginner');
-  const [logs, setLogs] = React.useState([
-    { id: 1, foodId: 'kaya-toast', name: 'Kaya toast set', protein: 10, time: '8:12a' },
-    { id: 2, foodId: 'chx-rice',   name: 'Chicken rice',   protein: 28, time: '12:40p' },
-    { id: 3, foodId: 'soya-bean',  name: 'Soya bean milk', protein:  7, time: '3:05p' },
-  ]);
-  const [history, setHistory] = React.useState([78, 92, 64, 110, 88, 102]);
+  const [weight, setWeight] = React.useState(saved.weight || 70);
+  const [activity, setActivity] = React.useState(saved.activity || 'beginner');
+  const [logs, setLogs] = React.useState(initialLogs);
+  const [history, setHistory] = React.useState(initialHistory);
+  const [onboarded, setOnboarded] = React.useState(!!saved.onboarded);
+
   const todayTotal = logs.reduce((s, l) => s + l.protein, 0);
   const pct = Math.min(1, todayTotal / goal);
+
+  // Persist whenever anything meaningful changes
+  React.useEffect(() => {
+    saveStore({ onboarded, weight, activity, goal, logDate: today, logs, history });
+  }, [onboarded, weight, activity, goal, logs, history]);
 
   const goalFromWeight = (w, a) => {
     const ratio = a === 'beginner' ? 1.4 : a === 'moderate' ? 1.6 : 1.8;
     return Math.round((w * ratio) / 5) * 5;
   };
+
+  const completeOnboarding = () => { setOnboarded(true); setScreen('today'); };
 
   const addFood = (food) => {
     const now = new Date();
@@ -349,10 +384,10 @@ function ProtoApp({ isMobile = false }) {
   let body;
   if (screen === 'onb-1')   body = <Onboarding1 T={theme} singlish="calm" onNext={() => setScreen('onb-2')} topPad={tp} />;
   else if (screen === 'onb-2') body = <Onboarding2 T={theme} weight={weight} setWeight={setWeight} activity={activity} setActivity={setActivity} onNext={() => setScreen('onb-3')} onBack={() => setScreen('onb-1')} topPad={tp} />;
-  else if (screen === 'onb-3') body = <Onboarding3 T={theme} weight={weight} activity={activity} suggestedGoal={goalFromWeight(weight, activity)} goal={goal} setGoal={setGoal} onDone={() => setScreen('today')} onBack={() => setScreen('onb-2')} singlish="calm" topPad={tp} />;
+  else if (screen === 'onb-3') body = <Onboarding3 T={theme} weight={weight} activity={activity} suggestedGoal={goalFromWeight(weight, activity)} goal={goal} setGoal={setGoal} onDone={completeOnboarding} onBack={() => setScreen('onb-2')} singlish="calm" topPad={tp} />;
   else if (screen === 'today') body = <Today T={theme} logs={logs} todayTotal={todayTotal} goal={goal} pct={pct} onLog={() => setLogOpen(true)} onRemove={removeLog} onEdit={(log) => setEditing(log)} singlish="calm" showWeekChart={true} history={history} topPad={tp} />;
   else if (screen === 'week')    body = <Week T={theme} history={history} todayTotal={todayTotal} goal={goal} singlish="calm" topPad={tp} />;
-  else if (screen === 'profile') body = <Profile T={theme} goal={goal} setGoal={setGoal} weight={weight} activity={activity} onResetOnboarding={() => setScreen('onb-1')} topPad={tp} />;
+  else if (screen === 'profile') body = <Profile T={theme} goal={goal} setGoal={setGoal} weight={weight} activity={activity} onResetOnboarding={() => { setOnboarded(false); setScreen('onb-1'); }} topPad={tp} />;
 
   const showTabs = screen === 'today' || screen === 'week' || screen === 'profile';
 
