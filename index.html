@@ -1010,7 +1010,7 @@ function SearchInput({ T, query, setQuery, placeholder = 'Search local food…' 
       </svg>
       <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={placeholder}
         autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
-        style={{ all: 'unset', flex: 1, fontSize: 15, color: T.ink, fontFamily: T.font }} />
+        style={{ all: 'unset', flex: 1, fontSize: 16, color: T.ink, fontFamily: T.font }} />
       {query && (
         <button onClick={() => setQuery('')} style={{ all: 'unset', cursor: 'pointer', color: T.muted, fontSize: 14 }}>✕</button>
       )}
