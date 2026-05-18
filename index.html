@@ -340,14 +340,15 @@ function ProtoApp({ isMobile = false }) {
   const [logs, setLogs] = React.useState(initialLogs);
   const [history, setHistory] = React.useState(initialHistory);
   const [onboarded, setOnboarded] = React.useState(!!saved.onboarded);
+  const [savedFoods, setSavedFoods] = React.useState(saved.savedFoods || []);
 
   const todayTotal = logs.reduce((s, l) => s + l.protein, 0);
   const pct = Math.min(1, todayTotal / goal);
 
   // Persist whenever anything meaningful changes
   React.useEffect(() => {
-    saveStore({ onboarded, weight, activity, goal, logDate: today, logs, history });
-  }, [onboarded, weight, activity, goal, logs, history]);
+    saveStore({ onboarded, weight, activity, goal, logDate: today, logs, history, savedFoods });
+  }, [onboarded, weight, activity, goal, logs, history, savedFoods]);
 
   const goalFromWeight = (w, a) => {
     const ratio = a === 'beginner' ? 1.4 : a === 'moderate' ? 1.6 : 1.8;
@@ -368,9 +369,10 @@ function ProtoApp({ isMobile = false }) {
 
   const [editing, setEditing] = React.useState(null);
   const openCustomFood = () => { setLogOpen(false); setEditing({ isCustom: true }); };
-  const saveEditing = ({ name, protein, time }) => {
+  const saveEditing = ({ name, protein, time, saveToLibrary }) => {
     if (editing?.isCustom) {
       setLogs(prev => [...prev, { id: Date.now(), foodId: 'custom', name, protein, time }]);
+      if (saveToLibrary) saveFood({ name, protein });
     } else if (editing) {
       updateLog(editing.id, { name, protein, time });
     }
@@ -380,6 +382,14 @@ function ProtoApp({ isMobile = false }) {
     if (editing && !editing.isCustom) removeLog(editing.id);
     setEditing(null);
   };
+  const saveFood = (food) => {
+    const normalised = food.name.trim().toLowerCase();
+    setSavedFoods(prev => {
+      if (prev.some(f => f.name.trim().toLowerCase() === normalised)) return prev;
+      return [...prev, { id: 'saved-' + Date.now(), name: food.name.trim(), protein: food.protein }];
+    });
+  };
+  const removeSavedFood = (id) => setSavedFoods(prev => prev.filter(f => f.id !== id));
 
   let body;
   if (screen === 'onb-1')   body = <Onboarding1 T={theme} singlish="calm" onNext={() => setScreen('onb-2')} topPad={tp} />;
@@ -405,7 +415,7 @@ function ProtoApp({ isMobile = false }) {
 
       {showTabs && <TabBar T={theme} screen={screen} setScreen={setScreen} onLog={() => setLogOpen(true)} />}
 
-      <LogSheet open={logOpen} onClose={() => setLogOpen(false)} onAdd={addFood} onAddCustom={openCustomFood} T={theme} variant="tiles" todayTotal={todayTotal} goal={goal} />
+      <LogSheet open={logOpen} onClose={() => setLogOpen(false)} onAdd={addFood} onAddCustom={openCustomFood} T={theme} variant="tiles" todayTotal={todayTotal} goal={goal} savedFoods={savedFoods} onRemoveSaved={removeSavedFood} />
 
       <EditLogSheet editing={editing} T={theme} onClose={() => setEditing(null)} onSave={saveEditing} onDelete={deleteEditing} />
 
@@ -933,7 +943,7 @@ window.tierColor = function (g) {
 // This hook is kept as a no-op so call sites don't need changing.
 function useKeyboardHeight() { return { kh: 0, vvh: window.innerHeight }; }
 
-function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, goal }) {
+function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, goal, savedFoods, onRemoveSaved }) {
   const [mounted, setMounted] = React.useState(open);
   const [shown, setShown] = React.useState(false);
   const [query, setQuery] = React.useState('');
@@ -992,7 +1002,7 @@ function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, g
         </div>
         <SearchInput T={T} query={query} setQuery={setQuery} />
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0 24px' }}>
-          {variant === 'tiles'   && <SheetTiles   T={T} onAdd={onAdd} onAddCustom={onAddCustom} query={query} setQuery={setQuery} />}
+          {variant === 'tiles'   && <SheetTiles   T={T} onAdd={onAdd} onAddCustom={onAddCustom} query={query} setQuery={setQuery} savedFoods={savedFoods} onRemoveSaved={onRemoveSaved} />}
           {variant === 'search'  && <SheetSearch  T={T} onAdd={onAdd} onAddCustom={onAddCustom} query={query} setQuery={setQuery} />}
           {variant === 'recents' && <SheetRecents T={T} onAdd={onAdd} onAddCustom={onAddCustom} query={query} setQuery={setQuery} />}
         </div>
@@ -1044,7 +1054,46 @@ function FoodCard({ f, T, onAdd, compact }) {
   );
 }
 
-function SheetTiles({ T, onAdd, onAddCustom, query, setQuery }) {
+function SavedFoodChip({ T, food, onAdd, onRemove }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'stretch',
+      background: T.surface, border: `1px solid ${T.line}`,
+      borderRadius: 999, flexShrink: 0, overflow: 'hidden',
+    }}>
+      <button onClick={() => onAdd(food)} style={{
+        all: 'unset', cursor: 'pointer',
+        padding: '8px 8px 8px 14px',
+        display: 'flex', flexDirection: 'column', gap: 1,
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, whiteSpace: 'nowrap', letterSpacing: -0.1 }}>{food.name}</div>
+        <div style={{ fontSize: 11, color: T.muted, fontVariantNumeric: 'tabular-nums' }}>{food.protein}g</div>
+      </button>
+      <button onClick={(e) => { e.stopPropagation(); onRemove(food.id); }} style={{
+        all: 'unset', cursor: 'pointer',
+        padding: '0 12px 0 6px',
+        display: 'flex', alignItems: 'center',
+        color: T.muted, fontSize: 13,
+      }}>✕</button>
+    </div>
+  );
+}
+
+function YourFoodsSection({ T, savedFoods, onAdd, onRemove }) {
+  if (!savedFoods || savedFoods.length === 0) return null;
+  return (
+    <div style={{ paddingTop: 14 }}>
+      <div style={{ fontSize: 11, color: T.muted, padding: '0 24px 8px', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>Your Foods</div>
+      <div style={{ display: 'flex', gap: 8, padding: '0 16px', overflowX: 'auto' }}>
+        {savedFoods.map(food => (
+          <SavedFoodChip key={food.id} T={T} food={food} onAdd={onAdd} onRemove={onRemove} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SheetTiles({ T, onAdd, onAddCustom, query, setQuery, savedFoods, onRemoveSaved }) {
   const foods = window.SG_FOODS;
   const cats = [
     { id: 'all',     label: 'All',     match: () => true },
@@ -1061,6 +1110,7 @@ function SheetTiles({ T, onAdd, onAddCustom, query, setQuery }) {
 
   return (
     <div>
+      {!query && <YourFoodsSection T={T} savedFoods={savedFoods} onAdd={onAdd} onRemove={onRemoveSaved} />}
       <div style={{ display: 'flex', gap: 8, padding: '14px 16px 4px', overflowX: 'auto' }}>
         {cats.map(c => (
           <button key={c.id} onClick={() => setActiveCat(c.id)} style={{
@@ -1195,12 +1245,13 @@ function EditLogSheet({ editing, T, onClose, onSave, onDelete }) {
   const [name, setName] = React.useState('');
   const [protein, setProtein] = React.useState(20);
   const [time, setTime] = React.useState('12:00');
+  const [saveToLibrary, setSaveToLibrary] = React.useState(false);
 
   React.useEffect(() => {
     if (open) {
       setMounted(true);
       if (editing.isCustom) {
-        setName(''); setProtein(20); setTime(format24Now());
+        setName(''); setProtein(20); setTime(format24Now()); setSaveToLibrary(false);
       } else {
         setName(editing.name); setProtein(editing.protein); setTime(timeTo24(editing.time));
       }
@@ -1216,7 +1267,7 @@ function EditLogSheet({ editing, T, onClose, onSave, onDelete }) {
 
   const canSave = name.trim().length > 0 && protein > 0;
   const isCustom = editing?.isCustom;
-  const save = () => { if (!canSave) return; onSave({ name: name.trim(), protein, time: time24ToDisplay(time) }); };
+  const save = () => { if (!canSave) return; onSave({ name: name.trim(), protein, time: time24ToDisplay(time), saveToLibrary }); };
 
   return (
     <>
@@ -1267,6 +1318,33 @@ function EditLogSheet({ editing, T, onClose, onSave, onDelete }) {
             </div>
           </div>
         </Field>
+
+        {isCustom && (
+          <button onClick={() => setSaveToLibrary(v => !v)} style={{
+            all: 'unset', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '12px 14px',
+            background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12,
+          }}>
+            <div style={{
+              width: 22, height: 22, borderRadius: 6, flexShrink: 0,
+              background: saveToLibrary ? T.accent : 'transparent',
+              border: `2px solid ${saveToLibrary ? T.accent : T.muted}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'background .15s, border-color .15s',
+            }}>
+              {saveToLibrary && (
+                <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+                  <path d="M1 5l3.5 3.5L11 1" stroke={T.bg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, letterSpacing: -0.1 }}>Save to Your Foods</div>
+              <div style={{ fontSize: 12, color: T.muted, marginTop: 1 }}>Log it again in one tap</div>
+            </div>
+          </button>
+        )}
 
         <Field T={T} label="When">
           <input type="time" value={time} onChange={(e) => setTime(e.target.value)}
