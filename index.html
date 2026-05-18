@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content" />
   <title>SG Protein Tracker</title>
 
   <!-- PWA / home screen -->
@@ -927,24 +927,11 @@ window.tierColor = function (g) {
   return window.TIER_COLORS.low;
 };
 
-function useKeyboardHeight() {
-  const [kh, setKh] = React.useState(0);
-  const [vvh, setVvh] = React.useState(() => window.innerHeight);
-  React.useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const update = () => {
-      // Don't subtract offsetTop — on iOS it changes as the view scrolls
-      // to reveal the focused input, which would undercount keyboard height
-      const k = Math.max(0, window.innerHeight - vv.height);
-      setKh(k);
-      setVvh(vv.height);
-    };
-    vv.addEventListener('resize', update);
-    return () => vv.removeEventListener('resize', update);
-  }, []);
-  return { kh, vvh };
-}
+// With interactive-widget=resizes-content in the viewport meta, the layout
+// viewport shrinks when the keyboard appears. position:fixed;bottom:0 therefore
+// naturally sits just above the keyboard — no JS measurement needed.
+// This hook is kept as a no-op so call sites don't need changing.
+function useKeyboardHeight() { return { kh: 0, vvh: window.innerHeight }; }
 
 function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, goal }) {
   const [mounted, setMounted] = React.useState(open);
@@ -965,12 +952,12 @@ function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, g
   }, [open]);
   if (!mounted) return null;
 
-  // On mobile use position:fixed so ancestor overflow:hidden doesn't interfere.
-  // bottom:kh lifts the sheet above the keyboard.
-  // maxHeight is capped to the visible space above the keyboard.
+  // position:fixed + bottom:0 sits above the keyboard automatically because
+  // interactive-widget=resizes-content makes the viewport shrink with the keyboard.
+  // dvh (dynamic viewport height) also shrinks, so maxHeight adapts too.
   const pos   = isMob ? 'fixed' : 'absolute';
-  const bot   = kh;
-  const mxH   = kh > 0 ? `${vvh - 60}px` : (isMob ? '88dvh' : '82%');
+  const bot   = 0;
+  const mxH   = isMob ? '88dvh' : '82%';
 
   return (
     <>
@@ -1237,13 +1224,13 @@ function EditLogSheet({ editing, T, onClose, onSave, onDelete }) {
     <>
       <div onClick={onClose} style={{ position: isMob ? 'fixed' : 'absolute', inset: 0, zIndex: 100, background: shown ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0)', transition: 'background .25s' }}/>
       <div style={{
-        position: isMob ? 'fixed' : 'absolute', left: 0, right: 0, bottom: kh, zIndex: 110,
+        position: isMob ? 'fixed' : 'absolute', left: 0, right: 0, bottom: 0, zIndex: 110,
         background: T.bg, borderRadius: '24px 24px 0 0',
         padding: '12px 20px 28px', display: 'flex', flexDirection: 'column', gap: 14,
         boxShadow: '0 -12px 30px rgba(0,0,0,0.18)',
         transform: shown ? 'translateY(0)' : 'translateY(100%)',
         transition: 'transform .28s cubic-bezier(.2,.7,.2,1)',
-        maxHeight: kh > 0 ? `${vvh - 40}px` : undefined, overflowY: kh > 0 ? 'auto' : undefined,
+        maxHeight: isMob ? '88dvh' : undefined, overflowY: isMob ? 'auto' : undefined,
       }}>
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <div style={{ width: 38, height: 5, borderRadius: 3, background: T.line }}/>
