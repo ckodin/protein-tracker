@@ -929,22 +929,29 @@ window.tierColor = function (g) {
 
 function useKeyboardHeight() {
   const [kh, setKh] = React.useState(0);
+  const [vvh, setVvh] = React.useState(() => window.innerHeight);
   React.useEffect(() => {
     const vv = window.visualViewport;
     if (!vv) return;
-    const update = () => setKh(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+    const update = () => {
+      // Don't subtract offsetTop — on iOS it changes as the view scrolls
+      // to reveal the focused input, which would undercount keyboard height
+      const k = Math.max(0, window.innerHeight - vv.height);
+      setKh(k);
+      setVvh(vv.height);
+    };
     vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
-    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update); };
+    return () => vv.removeEventListener('resize', update);
   }, []);
-  return kh;
+  return { kh, vvh };
 }
 
 function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, goal }) {
   const [mounted, setMounted] = React.useState(open);
   const [shown, setShown] = React.useState(false);
   const [query, setQuery] = React.useState('');
-  const kh = useKeyboardHeight();
+  const { kh, vvh } = useKeyboardHeight();
+  const isMob = window.innerWidth <= 500;
   React.useEffect(() => {
     if (open) {
       setMounted(true);
@@ -958,17 +965,24 @@ function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, g
   }, [open]);
   if (!mounted) return null;
 
+  // On mobile use position:fixed so ancestor overflow:hidden doesn't interfere.
+  // bottom:kh lifts the sheet above the keyboard.
+  // maxHeight is capped to the visible space above the keyboard.
+  const pos   = isMob ? 'fixed' : 'absolute';
+  const bot   = kh;
+  const mxH   = kh > 0 ? `${vvh - 60}px` : (isMob ? '88dvh' : '82%');
+
   return (
     <>
       <div onClick={onClose} style={{
-        position: 'absolute', inset: 0, zIndex: 80,
+        position: pos, inset: 0, zIndex: 80,
         background: shown ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0)',
         transition: 'background .25s',
       }}/>
       <div style={{
-        position: 'absolute', left: 0, right: 0, bottom: kh, zIndex: 90,
+        position: pos, left: 0, right: 0, bottom: bot, zIndex: 90,
         background: T.bg, borderRadius: '24px 24px 0 0',
-        maxHeight: '82%', display: 'flex', flexDirection: 'column',
+        maxHeight: mxH, display: 'flex', flexDirection: 'column',
         boxShadow: '0 -12px 30px rgba(0,0,0,0.18)',
         transform: shown ? 'translateY(0)' : 'translateY(100%)',
         transition: 'transform .28s cubic-bezier(.2,.7,.2,1)',
@@ -1191,7 +1205,8 @@ function EditLogSheet({ editing, T, onClose, onSave, onDelete }) {
   const open = editing != null;
   const [mounted, setMounted] = React.useState(false);
   const [shown, setShown] = React.useState(false);
-  const kh = useKeyboardHeight();
+  const { kh, vvh } = useKeyboardHeight();
+  const isMob = window.innerWidth <= 500;
   const [name, setName] = React.useState('');
   const [protein, setProtein] = React.useState(20);
   const [time, setTime] = React.useState('12:00');
@@ -1220,14 +1235,15 @@ function EditLogSheet({ editing, T, onClose, onSave, onDelete }) {
 
   return (
     <>
-      <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 100, background: shown ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0)', transition: 'background .25s' }}/>
+      <div onClick={onClose} style={{ position: isMob ? 'fixed' : 'absolute', inset: 0, zIndex: 100, background: shown ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0)', transition: 'background .25s' }}/>
       <div style={{
-        position: 'absolute', left: 0, right: 0, bottom: kh, zIndex: 110,
+        position: isMob ? 'fixed' : 'absolute', left: 0, right: 0, bottom: kh, zIndex: 110,
         background: T.bg, borderRadius: '24px 24px 0 0',
         padding: '12px 20px 28px', display: 'flex', flexDirection: 'column', gap: 14,
         boxShadow: '0 -12px 30px rgba(0,0,0,0.18)',
         transform: shown ? 'translateY(0)' : 'translateY(100%)',
         transition: 'transform .28s cubic-bezier(.2,.7,.2,1)',
+        maxHeight: kh > 0 ? `${vvh - 40}px` : undefined, overflowY: kh > 0 ? 'auto' : undefined,
       }}>
         <div style={{ display: 'flex', justifyContent: 'center' }}>
           <div style={{ width: 38, height: 5, borderRadius: 3, background: T.line }}/>
