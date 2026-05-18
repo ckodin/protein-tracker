@@ -927,10 +927,24 @@ window.tierColor = function (g) {
   return window.TIER_COLORS.low;
 };
 
+function useKeyboardHeight() {
+  const [kh, setKh] = React.useState(0);
+  React.useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => setKh(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    return () => { vv.removeEventListener('resize', update); vv.removeEventListener('scroll', update); };
+  }, []);
+  return kh;
+}
+
 function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, goal }) {
   const [mounted, setMounted] = React.useState(open);
   const [shown, setShown] = React.useState(false);
   const [query, setQuery] = React.useState('');
+  const kh = useKeyboardHeight();
   React.useEffect(() => {
     if (open) {
       setMounted(true);
@@ -952,7 +966,7 @@ function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, g
         transition: 'background .25s',
       }}/>
       <div style={{
-        position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 90,
+        position: 'absolute', left: 0, right: 0, bottom: kh, zIndex: 90,
         background: T.bg, borderRadius: '24px 24px 0 0',
         maxHeight: '82%', display: 'flex', flexDirection: 'column',
         boxShadow: '0 -12px 30px rgba(0,0,0,0.18)',
@@ -993,6 +1007,7 @@ function SearchInput({ T, query, setQuery, placeholder = 'Search local food…' 
         <path d="M11 11l3 3" stroke={T.muted} strokeWidth="1.5" strokeLinecap="round"/>
       </svg>
       <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={placeholder}
+        autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
         style={{ all: 'unset', flex: 1, fontSize: 15, color: T.ink, fontFamily: T.font }} />
       {query && (
         <button onClick={() => setQuery('')} style={{ all: 'unset', cursor: 'pointer', color: T.muted, fontSize: 14 }}>✕</button>
@@ -1176,6 +1191,7 @@ function EditLogSheet({ editing, T, onClose, onSave, onDelete }) {
   const open = editing != null;
   const [mounted, setMounted] = React.useState(false);
   const [shown, setShown] = React.useState(false);
+  const kh = useKeyboardHeight();
   const [name, setName] = React.useState('');
   const [protein, setProtein] = React.useState(20);
   const [time, setTime] = React.useState('12:00');
@@ -1206,7 +1222,7 @@ function EditLogSheet({ editing, T, onClose, onSave, onDelete }) {
     <>
       <div onClick={onClose} style={{ position: 'absolute', inset: 0, zIndex: 100, background: shown ? 'rgba(0,0,0,0.45)' : 'rgba(0,0,0,0)', transition: 'background .25s' }}/>
       <div style={{
-        position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 110,
+        position: 'absolute', left: 0, right: 0, bottom: kh, zIndex: 110,
         background: T.bg, borderRadius: '24px 24px 0 0',
         padding: '12px 20px 28px', display: 'flex', flexDirection: 'column', gap: 14,
         boxShadow: '0 -12px 30px rgba(0,0,0,0.18)',
@@ -1230,7 +1246,7 @@ function EditLogSheet({ editing, T, onClose, onSave, onDelete }) {
 
         <Field T={T} label="Food">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mum's mee goreng"
-            autoFocus={isCustom}
+            autoFocus={isCustom} autoCorrect="off" autoCapitalize="on" spellCheck={false}
             style={{ all: 'unset', width: '100%', boxSizing: 'border-box', fontSize: 17, color: T.ink, fontFamily: T.font, padding: '12px 14px', background: T.surface, border: `1px solid ${T.line}`, borderRadius: 12 }} />
         </Field>
 
