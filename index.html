@@ -75,11 +75,16 @@ window.SG_FOODS = [
   { id: 'soya-eggs',      name: 'Soya sauce eggs (2)',    protein: 12, cat: 'protein' },
   { id: 'boiled-egg',     name: 'Hard-boiled egg',        protein: 6,  cat: 'protein', pop: 1 },
   { id: 'greek-yogurt',   name: 'Greek yogurt cup',       protein: 15, cat: 'protein' },
+  { id: 'canned-tuna',    name: 'Canned tuna (1 can)',    protein: 25, cat: 'protein', pop: 1 },
+  { id: 'fortune-tau-kwa',name: 'Fortune Tau Kwa (100g)', protein: 8,  cat: 'protein' },
+  { id: 'chickpeas',      name: 'Canned chickpeas (100g)',protein: 8,  cat: 'protein' },
   { id: 'kaya-toast',     name: 'Kaya toast set',         protein: 10, cat: 'snack',   pop: 1 },
   { id: 'roti-prata',     name: 'Roti prata (egg)',       protein: 12, cat: 'snack'   },
   { id: 'tau-huay',       name: 'Tau huay',               protein: 8,  cat: 'snack'   },
   { id: 'curry-puff',     name: 'Curry puff',             protein: 6,  cat: 'snack'   },
   { id: 'soya-bean',      name: 'Soya bean milk',         protein: 7,  cat: 'drink'   },
+  { id: 'nutrisoy-rsg',   name: 'Nutrisoy (reduced sugar)',protein: 5, cat: 'drink'   },
+  { id: 'nutrisoy-nsa',   name: 'Nutrisoy (no sugar)',    protein: 6,  cat: 'drink'   },
   { id: 'kopi-c',         name: 'Kopi C',                 protein: 3,  cat: 'drink'   },
   { id: 'teh-o',          name: 'Teh O',                  protein: 0,  cat: 'drink'   },
   { id: 'milo',           name: 'Iced milo',              protein: 5,  cat: 'drink'   },
@@ -604,6 +609,7 @@ function BigButton({ T, onClick, children }) {
 function Today({ T, logs, todayTotal, goal, pct, onLog, onRemove, onEdit, singlish, showWeekChart, history, topPad = 60 }) {
   const remaining = Math.max(0, goal - todayTotal);
   const ringR = 86, ringC = 2 * Math.PI * ringR;
+
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
   const name = 'Clarisse';
