@@ -821,7 +821,9 @@ function WeekBars({ T, data, goal, tall }) {
         const h = (v / max) * H;
         const hit = v >= goal;
         const isToday = slot === todaySlot;
-        const bg = hit ? T.accent : v > 0 ? (T.dark ? '#c0392b' : '#ef4444') : (T.dark ? '#3a3a3a' : T.surface2);
+        const missed = v > 0 && !hit;
+        const bg = hit ? T.accent : missed ? '#D4823A' : (T.dark ? '#3a3a3a' : T.surface2);
+        const border = isToday ? `1.5px solid ${T.ink}` : missed ? `1.5px solid ${T.muted}` : 'none';
         return (
           <div key={slot} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, justifyContent: 'flex-end', height: '100%' }}>
             <div style={{ fontSize: 9, color: hit ? T.accent : T.muted, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{v > 0 ? v : ''}</div>
@@ -829,7 +831,7 @@ function WeekBars({ T, data, goal, tall }) {
               width: '100%', height: `${h}px`,
               background: bg,
               borderRadius: 4, minHeight: 4,
-              border: isToday ? `1.5px solid ${T.ink}` : 'none',
+              border,
               transition: 'height .4s',
             }}/>
             <div style={{ fontSize: 11, color: isToday ? T.ink : T.muted, fontWeight: isToday ? 700 : 500 }}>{days[slot]}</div>
