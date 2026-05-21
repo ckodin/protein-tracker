@@ -772,7 +772,11 @@ function Week({ T, history, todayTotal, goal, singlish, topPad = 60 }) {
             {(() => {
               const maxVal = Math.max(...data);
               const maxIdx = data.indexOf(maxVal);
-              const dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+              const dayNames = data.map((_, i) => {
+                const d = new Date();
+                d.setDate(d.getDate() - (data.length - 1 - i));
+                return d.toLocaleDateString('en-SG', { weekday: 'short' });
+              });
               return (
                 <>
                   <Insight T={T} title="Strongest day" body={`${dayNames[maxIdx]} · ${maxVal}g — your best day so far.`} />
@@ -797,7 +801,11 @@ function Insight({ T, title, body }) {
 }
 
 function WeekBars({ T, data, goal, tall }) {
-  const days = ['M','T','W','T','F','S','S'];
+  const days = data.map((_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (data.length - 1 - i));
+    return d.toLocaleDateString('en-SG', { weekday: 'narrow' });
+  });
   const max = Math.max(goal * 1.1, ...data);
   const H = tall ? 160 : 90;
   return (
