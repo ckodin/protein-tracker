@@ -801,12 +801,14 @@ function Insight({ T, title, body }) {
 }
 
 function WeekBars({ T, data, goal, tall }) {
-  const days = data.map((_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (data.length - 1 - i));
-    return d.toLocaleDateString('en-SG', { weekday: 'narrow' });
+  // Reorder rolling window into fixed Mon–Sun slots
+  const todaySlot = (new Date().getDay() + 6) % 7; // 0=Mon … 6=Sun
+  const ordered = [0,1,2,3,4,5,6].map(slot => {
+    const daysAgo = ((todaySlot - slot) + 7) % 7;
+    return data[data.length - 1 - daysAgo];
   });
-  const max = Math.max(goal * 1.1, ...data);
+  const days = ['M','T','W','T','F','S','S'];
+  const max = Math.max(goal * 1.1, ...ordered);
   const H = tall ? 160 : 90;
   return (
     <div style={{ position: 'relative', height: H + 22, display: 'flex', alignItems: 'flex-end', gap: 8 }}>
@@ -815,21 +817,22 @@ function WeekBars({ T, data, goal, tall }) {
           goal {goal}g
         </span>
       </div>
-      {data.map((v, i) => {
+      {ordered.map((v, slot) => {
         const h = (v / max) * H;
         const hit = v >= goal;
-        const isToday = i === data.length - 1;
+        const isToday = slot === todaySlot;
+        const bg = hit ? T.accent : v > 0 ? (T.dark ? '#c0392b' : '#ef4444') : (T.dark ? '#3a3a3a' : T.surface2);
         return (
-          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, justifyContent: 'flex-end', height: '100%' }}>
-            <div style={{ fontSize: 9, color: hit ? T.accent : T.muted, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{v}</div>
+          <div key={slot} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, justifyContent: 'flex-end', height: '100%' }}>
+            <div style={{ fontSize: 9, color: hit ? T.accent : T.muted, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{v > 0 ? v : ''}</div>
             <div style={{
               width: '100%', height: `${h}px`,
-              background: hit ? T.accent : (T.dark ? '#3a3a3a' : T.surface2),
+              background: bg,
               borderRadius: 4, minHeight: 4,
               border: isToday ? `1.5px solid ${T.ink}` : 'none',
               transition: 'height .4s',
             }}/>
-            <div style={{ fontSize: 11, color: isToday ? T.ink : T.muted, fontWeight: isToday ? 700 : 500 }}>{days[i]}</div>
+            <div style={{ fontSize: 11, color: isToday ? T.ink : T.muted, fontWeight: isToday ? 700 : 500 }}>{days[slot]}</div>
           </div>
         );
       })}
