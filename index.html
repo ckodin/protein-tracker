@@ -315,6 +315,21 @@ function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
+function addDays(ds, n) {
+  const d = new Date(ds + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function daysAgo(ds) {
+  const now = new Date(); now.setHours(0,0,0,0);
+  return Math.round((now - new Date(ds + 'T00:00:00')) / 86400000);
+}
+function friendlyDate(ds) {
+  const ago = daysAgo(ds);
+  if (ago === 0) return 'Today';
+  if (ago === 1) return 'Yesterday';
+  return new Date(ds + 'T00:00:00').toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short' });
+}
 
 function ProtoApp({ isMobile = false }) {
   const theme = THEME;
@@ -325,16 +340,20 @@ function ProtoApp({ isMobile = false }) {
   const today = todayStr();
 
   // If it's a new day, roll yesterday's total into history and clear logs
-  const [initialLogs, initialHistory] = React.useMemo(() => {
+  const [initialLogs, initialHistory, initialPastLogs] = React.useMemo(() => {
     const savedDate = saved.logDate;
     const savedLogs = saved.logs || [];
     const savedHistory = saved.history || [0, 0, 0, 0, 0, 0];
+    const savedPastLogs = saved.pastLogs || {};
     if (savedDate && savedDate !== today) {
+      const updatedPast = { ...savedPastLogs, [savedDate]: savedLogs };
+      const keys = Object.keys(updatedPast).sort();
+      const trimmedPast = Object.fromEntries(keys.slice(-30).map(k => [k, updatedPast[k]]));
       const prevTotal = savedLogs.reduce((s, l) => s + l.protein, 0);
       const hist = [...savedHistory, prevTotal].slice(-6);
-      return [[], hist];
+      return [[], hist, trimmedPast];
     }
-    return [savedLogs, savedHistory];
+    return [savedLogs, savedHistory, savedPastLogs];
   }, []);
 
   const [goal, setGoal] = React.useState(saved.goal || 110);
@@ -344,6 +363,8 @@ function ProtoApp({ isMobile = false }) {
   const [activity, setActivity] = React.useState(saved.activity || 'beginner');
   const [logs, setLogs] = React.useState(initialLogs);
   const [history, setHistory] = React.useState(initialHistory);
+  const [pastLogs, setPastLogs] = React.useState(initialPastLogs);
+  const [viewDate, setViewDate] = React.useState(todayStr());
   const [onboarded, setOnboarded] = React.useState(!!saved.onboarded);
   const [savedFoods, setSavedFoods] = React.useState(saved.savedFoods || []);
 
@@ -352,8 +373,8 @@ function ProtoApp({ isMobile = false }) {
 
   // Persist whenever anything meaningful changes
   React.useEffect(() => {
-    saveStore({ onboarded, weight, activity, goal, logDate: today, logs, history, savedFoods });
-  }, [onboarded, weight, activity, goal, logs, history, savedFoods]);
+    saveStore({ onboarded, weight, activity, goal, logDate: today, logs, history, pastLogs, savedFoods });
+  }, [onboarded, weight, activity, goal, logs, history, pastLogs, savedFoods]);
 
   const goalFromWeight = (w, a) => {
     const ratio = a === 'beginner' ? 1.4 : a === 'moderate' ? 1.6 : 1.8;
@@ -362,11 +383,28 @@ function ProtoApp({ isMobile = false }) {
 
   const completeOnboarding = () => { setOnboarded(true); setScreen('today'); };
 
+  const syncHistoryForDate = (date, entries) => {
+    const ago = daysAgo(date);
+    if (ago < 1 || ago > 6) return;
+    const total = (entries || []).reduce((s, l) => s + l.protein, 0);
+    setHistory(prev => { const next = [...prev]; next[6 - ago] = total; return next; });
+  };
+  const addToPastDay = (date, entry) => {
+    const newEntries = [...(pastLogs[date] || []), entry];
+    setPastLogs(prev => ({ ...prev, [date]: newEntries }));
+    syncHistoryForDate(date, newEntries);
+  };
+
   const addFood = (food) => {
     const now = new Date();
     const h = now.getHours(), m = now.getMinutes();
     const time = `${h % 12 || 12}:${String(m).padStart(2,'0')}${h >= 12 ? 'p' : 'a'}`;
-    setLogs(prev => [...prev, { id: Date.now(), foodId: food.id, name: food.name, protein: food.protein, time }]);
+    const entry = { id: Date.now(), foodId: food.id, name: food.name, protein: food.protein, time };
+    if (viewDate === todayStr()) {
+      setLogs(prev => [...prev, entry]);
+    } else {
+      addToPastDay(viewDate, entry);
+    }
     setLogOpen(false);
   };
   const removeLog = (id) => setLogs(prev => prev.filter(l => l.id !== id));
@@ -376,15 +414,34 @@ function ProtoApp({ isMobile = false }) {
   const openCustomFood = (initialName = '') => { setLogOpen(false); setEditing({ isCustom: true, initialName }); };
   const saveEditing = ({ name, protein, time, saveToLibrary }) => {
     if (editing?.isCustom) {
-      setLogs(prev => [...prev, { id: Date.now(), foodId: 'custom', name, protein, time }]);
+      const entry = { id: Date.now(), foodId: 'custom', name, protein, time };
+      if (viewDate === todayStr()) {
+        setLogs(prev => [...prev, entry]);
+      } else {
+        addToPastDay(viewDate, entry);
+      }
       if (saveToLibrary) saveFood({ name, protein });
     } else if (editing) {
-      updateLog(editing.id, { name, protein, time });
+      if (viewDate === todayStr()) {
+        updateLog(editing.id, { name, protein, time });
+      } else {
+        const newEntries = (pastLogs[viewDate] || []).map(l => l.id === editing.id ? { ...l, name, protein, time } : l);
+        setPastLogs(prev => ({ ...prev, [viewDate]: newEntries }));
+        syncHistoryForDate(viewDate, newEntries);
+      }
     }
     setEditing(null);
   };
   const deleteEditing = () => {
-    if (editing && !editing.isCustom) removeLog(editing.id);
+    if (editing && !editing.isCustom) {
+      if (viewDate === todayStr()) {
+        removeLog(editing.id);
+      } else {
+        const newEntries = (pastLogs[viewDate] || []).filter(l => l.id !== editing.id);
+        setPastLogs(prev => ({ ...prev, [viewDate]: newEntries }));
+        syncHistoryForDate(viewDate, newEntries);
+      }
+    }
     setEditing(null);
   };
   const saveFood = (food) => {
@@ -400,7 +457,12 @@ function ProtoApp({ isMobile = false }) {
   if (screen === 'onb-1')   body = <Onboarding1 T={theme} singlish="calm" onNext={() => setScreen('onb-2')} topPad={tp} />;
   else if (screen === 'onb-2') body = <Onboarding2 T={theme} weight={weight} setWeight={setWeight} activity={activity} setActivity={setActivity} onNext={() => { setGoal(goalFromWeight(weight, activity)); setScreen('onb-3'); }} onBack={() => setScreen('onb-1')} topPad={tp} />;
   else if (screen === 'onb-3') body = <Onboarding3 T={theme} weight={weight} activity={activity} suggestedGoal={goalFromWeight(weight, activity)} goal={goal} setGoal={setGoal} onDone={completeOnboarding} onBack={() => setScreen('onb-2')} singlish="calm" topPad={tp} />;
-  else if (screen === 'today') body = <Today T={theme} logs={logs} todayTotal={todayTotal} goal={goal} pct={pct} onLog={() => setLogOpen(true)} onRemove={removeLog} onEdit={(log) => setEditing(log)} singlish="calm" showWeekChart={true} history={history} topPad={tp} />;
+  else if (screen === 'today') body = <Today T={theme} logs={logs} todayTotal={todayTotal} goal={goal} pct={pct} onLog={() => setLogOpen(true)}
+    onRemove={(id) => {
+      if (viewDate === todayStr()) { removeLog(id); }
+      else { const ne = (pastLogs[viewDate] || []).filter(l => l.id !== id); setPastLogs(p => ({...p, [viewDate]: ne})); syncHistoryForDate(viewDate, ne); }
+    }}
+    onEdit={(log) => setEditing(log)} singlish="calm" showWeekChart={true} history={history} topPad={tp} viewDate={viewDate} pastLogs={pastLogs} setViewDate={setViewDate} />;
   else if (screen === 'week')    body = <Week T={theme} history={history} todayTotal={todayTotal} goal={goal} singlish="calm" topPad={tp} />;
   else if (screen === 'profile') body = <Profile T={theme} goal={goal} setGoal={setGoal} weight={weight} activity={activity} onResetOnboarding={() => { setOnboarded(false); setScreen('onb-1'); }} topPad={tp} />;
 
@@ -420,7 +482,7 @@ function ProtoApp({ isMobile = false }) {
 
       {showTabs && <TabBar T={theme} screen={screen} setScreen={setScreen} onLog={() => setLogOpen(true)} />}
 
-      <LogSheet open={logOpen} onClose={() => setLogOpen(false)} onAdd={addFood} onAddCustom={openCustomFood} T={theme} variant="tiles" todayTotal={todayTotal} goal={goal} savedFoods={savedFoods} onRemoveSaved={removeSavedFood} />
+      <LogSheet open={logOpen} onClose={() => setLogOpen(false)} onAdd={addFood} onAddCustom={openCustomFood} T={theme} variant="tiles" todayTotal={todayTotal} goal={goal} savedFoods={savedFoods} onRemoveSaved={removeSavedFood} viewDate={viewDate} />
 
       <EditLogSheet editing={editing} T={theme} onClose={() => setEditing(null)} onSave={saveEditing} onDelete={deleteEditing} />
 
@@ -606,37 +668,71 @@ function BigButton({ T, onClick, children }) {
 
 // ── TODAY ───────────────────────────────────────────────────
 
-function Today({ T, logs, todayTotal, goal, pct, onLog, onRemove, onEdit, singlish, showWeekChart, history, topPad = 60 }) {
-  const remaining = Math.max(0, goal - todayTotal);
+function Today({ T, logs, todayTotal, goal, pct, onLog, onRemove, onEdit, singlish, showWeekChart, history, topPad = 60, viewDate, pastLogs, setViewDate }) {
+  const today = todayStr();
+  const isToday = !viewDate || viewDate === today;
+  const displayLogs = isToday ? logs : (pastLogs && pastLogs[viewDate] || []);
+  const displayTotal = displayLogs.reduce((s, l) => s + l.protein, 0);
+  const displayPct = Math.min(1, displayTotal / goal);
+  const remaining = Math.max(0, goal - displayTotal);
   const ringR = 86, ringC = 2 * Math.PI * ringR;
 
   const hour = new Date().getHours();
   const greet = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
   const name = 'Clarisse';
-  const dateStr = new Date().toLocaleDateString('en-SG', { weekday: 'long', day: 'numeric', month: 'short' });
 
   const subtitle = (() => {
+    if (!isToday) {
+      if (displayTotal >= goal) return `Hit the ${goal}g goal that day.`;
+      if (displayTotal === 0) return 'Nothing logged for this day. Add entries below.';
+      return `${displayTotal}g logged · ${Math.round(displayTotal / goal * 100)}% of goal.`;
+    }
     if (todayTotal >= goal) return singlish === 'cheeky' ? "Wah, hit goal liao 💪 Steady la." : "Goal hit. Solid day.";
     if (todayTotal === 0)   return singlish === 'cheeky' ? "Eh, nothing logged yet. Start with breakfast?" : "Nothing logged yet. A kaya toast set is a good start.";
     if (remaining <= 25)    return singlish === 'cheeky' ? `Only ${remaining}g more leh. One shake & confirm hit.` : `${remaining}g left. A protein shake closes it.`;
     return singlish === 'cheeky' ? `${remaining}g to go. One chicken rice is ~28g.` : `${remaining}g remaining. A chicken rice is ~28g.`;
   })();
 
+  const navChevron = (label, onClick) => (
+    <button onClick={onClick} style={{
+      all: 'unset', cursor: 'pointer', width: 30, height: 30, borderRadius: 15,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: T.muted, fontSize: 20, lineHeight: 1,
+    }}>{label}</button>
+  );
+
   return (
     <div style={{ padding: `${topPad}px 0 12px` }}>
       <div style={{ padding: '8px 22px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div>
-          <div style={{ fontSize: 12, color: T.muted, letterSpacing: 0.2, textTransform: 'capitalize' }}>{dateStr}</div>
-          <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.3, marginTop: 2, fontFamily: T.fontDisplay }}>
-            {greet}, {name}.
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            {navChevron('‹', () => setViewDate && setViewDate(addDays(viewDate || today, -1)))}
+            <div style={{ fontSize: 12, color: T.muted, letterSpacing: 0.2, textTransform: 'capitalize' }}>
+              {isToday
+                ? new Date().toLocaleDateString('en-SG', { weekday: 'long', day: 'numeric', month: 'short' })
+                : new Date((viewDate || today) + 'T00:00:00').toLocaleDateString('en-SG', { weekday: 'long', day: 'numeric', month: 'short' })
+              }
+            </div>
+            {!isToday && navChevron('›', () => setViewDate && setViewDate(addDays(viewDate, 1)))}
           </div>
+          {isToday ? (
+            <div style={{ fontSize: 22, fontWeight: 600, letterSpacing: -0.3, marginTop: 2, fontFamily: T.fontDisplay }}>
+              {greet}, {name}.
+            </div>
+          ) : (
+            <button onClick={() => setViewDate && setViewDate(today)} style={{
+              all: 'unset', cursor: 'pointer', fontSize: 13, color: T.accent, marginTop: 3, fontWeight: 600,
+            }}>Back to today →</button>
+          )}
         </div>
-        <div style={{
-          width: 38, height: 38, borderRadius: 19,
-          background: T.surface, border: `1px solid ${T.line}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 13, color: T.muted, fontWeight: 600,
-        }}>{name[0]}</div>
+        {isToday && (
+          <div style={{
+            width: 38, height: 38, borderRadius: 19,
+            background: T.surface, border: `1px solid ${T.line}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 13, color: T.muted, fontWeight: 600,
+          }}>{name[0]}</div>
+        )}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22 }}>
@@ -646,16 +742,16 @@ function Today({ T, logs, todayTotal, goal, pct, onLog, onRemove, onEdit, singli
             <circle cx="110" cy="110" r={ringR} fill="none"
               stroke={T.accent} strokeWidth="6" strokeLinecap="round"
               strokeDasharray={`${ringC} ${ringC}`}
-              strokeDashoffset={ringC * (1 - pct)}
+              strokeDashoffset={ringC * (1 - displayPct)}
               transform="rotate(-90 110 110)"
               style={{ transition: 'stroke-dashoffset .6s cubic-bezier(.2,.7,.2,1)', filter: T.dark ? `drop-shadow(0 0 8px ${T.accent}66)` : 'none' }}/>
           </svg>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ fontSize: 64, fontWeight: T.numWeight, letterSpacing: T.numLetter, fontVariantNumeric: 'tabular-nums', lineHeight: 1, fontFamily: T.fontDisplay }}>
-              {todayTotal}<span style={{ fontSize: 24, color: T.muted, fontWeight: 400, marginLeft: 2 }}>g</span>
+              {displayTotal}<span style={{ fontSize: 24, color: T.muted, fontWeight: 400, marginLeft: 2 }}>g</span>
             </div>
             <div style={{ fontSize: 12, color: T.muted, marginTop: 8, letterSpacing: 0.4, fontVariantNumeric: 'tabular-nums' }}>
-              of {goal}g · {Math.round(pct*100)}%
+              of {goal}g · {Math.round(displayPct*100)}%
             </div>
           </div>
         </div>
@@ -673,25 +769,28 @@ function Today({ T, logs, todayTotal, goal, pct, onLog, onRemove, onEdit, singli
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 16, fontWeight: 600, letterSpacing: -0.2, fontFamily: T.font,
         }}>
-          <span style={{ marginRight: 8, fontSize: 22, lineHeight: 0 }}>+</span> Log food
+          <span style={{ marginRight: 8, fontSize: 22, lineHeight: 0 }}>+</span>
+          {isToday ? 'Log food' : `Log for ${friendlyDate(viewDate)}`}
         </button>
       </div>
 
       <div style={{ padding: '24px 16px 8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 8px' }}>
-          <div style={{ fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>Today's log</div>
-          <div style={{ fontSize: 11, color: T.muted, fontVariantNumeric: 'tabular-nums' }}>{logs.length} item{logs.length !== 1 ? 's' : ''}</div>
+          <div style={{ fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
+            {isToday ? "Today's log" : `${friendlyDate(viewDate)}'s log`}
+          </div>
+          <div style={{ fontSize: 11, color: T.muted, fontVariantNumeric: 'tabular-nums' }}>{displayLogs.length} item{displayLogs.length !== 1 ? 's' : ''}</div>
         </div>
-        {logs.length === 0 ? (
+        {displayLogs.length === 0 ? (
           <div style={{ background: T.surface, borderRadius: 16, border: `1px dashed ${T.line}`, padding: '28px 18px', textAlign: 'center' }}>
             <div style={{ fontSize: 14, color: T.muted }}>
-              {singlish === 'cheeky' ? "No log no eat ah?" : "Nothing logged yet."}
+              {isToday ? (singlish === 'cheeky' ? "No log no eat ah?" : "Nothing logged yet.") : "Nothing logged for this day."}
             </div>
           </div>
         ) : (
           <div style={{ background: T.surface, borderRadius: 16, border: `1px solid ${T.line}`, overflow: 'hidden' }}>
-            {logs.map((l, i) => (
-              <LogRow key={l.id} log={l} last={i === logs.length - 1} T={T} onRemove={onRemove} onEdit={onEdit} />
+            {displayLogs.map((l, i) => (
+              <LogRow key={l.id} log={l} last={i === displayLogs.length - 1} T={T} onRemove={onRemove} onEdit={onEdit} />
             ))}
           </div>
         )}
@@ -962,7 +1061,7 @@ window.tierColor = function (g) {
 // This hook is kept as a no-op so call sites don't need changing.
 function useKeyboardHeight() { return { kh: 0, vvh: window.innerHeight }; }
 
-function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, goal, savedFoods, onRemoveSaved }) {
+function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, goal, savedFoods, onRemoveSaved, viewDate }) {
   const [mounted, setMounted] = React.useState(open);
   const [shown, setShown] = React.useState(false);
   const [query, setQuery] = React.useState('');
@@ -1009,7 +1108,12 @@ function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, g
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 18px 4px' }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 700, fontFamily: T.fontDisplay, letterSpacing: -0.3 }}>Log food</div>
-            <div style={{ fontSize: 12, color: T.muted, marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>{todayTotal}g of {goal}g today</div>
+            <div style={{ fontSize: 12, color: T.muted, marginTop: 2, fontVariantNumeric: 'tabular-nums' }}>
+              {viewDate && viewDate !== todayStr()
+                ? <span style={{ color: T.accent, fontWeight: 600 }}>Logging for {friendlyDate(viewDate)}</span>
+                : <>{todayTotal}g of {goal}g today</>
+              }
+            </div>
           </div>
           <button onClick={onClose} style={{
             all: 'unset', cursor: 'pointer',
