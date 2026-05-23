@@ -373,7 +373,7 @@ function ProtoApp({ isMobile = false }) {
   const updateLog = (id, patch) => setLogs(prev => prev.map(l => l.id === id ? { ...l, ...patch } : l));
 
   const [editing, setEditing] = React.useState(null);
-  const openCustomFood = () => { setLogOpen(false); setEditing({ isCustom: true }); };
+  const openCustomFood = (initialName = '') => { setLogOpen(false); setEditing({ isCustom: true, initialName }); };
   const saveEditing = ({ name, protein, time, saveToLibrary }) => {
     if (editing?.isCustom) {
       setLogs(prev => [...prev, { id: Date.now(), foodId: 'custom', name, protein, time }]);
@@ -1021,9 +1021,9 @@ function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, g
         </div>
         <SearchInput T={T} query={query} setQuery={setQuery} />
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0 24px' }}>
-          {variant === 'tiles'   && <SheetTiles   T={T} onAdd={onAdd} onAddCustom={onAddCustom} query={query} setQuery={setQuery} savedFoods={savedFoods} onRemoveSaved={onRemoveSaved} />}
-          {variant === 'search'  && <SheetSearch  T={T} onAdd={onAdd} onAddCustom={onAddCustom} query={query} setQuery={setQuery} />}
-          {variant === 'recents' && <SheetRecents T={T} onAdd={onAdd} onAddCustom={onAddCustom} query={query} setQuery={setQuery} />}
+          {variant === 'tiles'   && <SheetTiles   T={T} onAdd={onAdd} onAddCustom={() => onAddCustom(query)} query={query} setQuery={setQuery} savedFoods={savedFoods} onRemoveSaved={onRemoveSaved} />}
+          {variant === 'search'  && <SheetSearch  T={T} onAdd={onAdd} onAddCustom={() => onAddCustom(query)} query={query} setQuery={setQuery} />}
+          {variant === 'recents' && <SheetRecents T={T} onAdd={onAdd} onAddCustom={() => onAddCustom(query)} query={query} setQuery={setQuery} />}
         </div>
       </div>
     </>
@@ -1270,7 +1270,7 @@ function EditLogSheet({ editing, T, onClose, onSave, onDelete }) {
     if (open) {
       setMounted(true);
       if (editing.isCustom) {
-        setName(''); setProtein(20); setTime(format24Now()); setSaveToLibrary(false);
+        setName(editing.initialName || ''); setProtein(20); setTime(format24Now()); setSaveToLibrary(false);
       } else {
         setName(editing.name); setProtein(editing.protein); setTime(timeTo24(editing.time));
       }
