@@ -303,6 +303,41 @@ const THEME = {
   numWeight: 300, numLetter: -2,
 };
 
+// ── Helpers ─────────────────────────────────────────────────
+function hexAlpha(hex, alpha) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function computeStreaks(series, goal) {
+  const n = series.length;
+  const todayHit = n > 0 && series[n-1].total >= goal;
+  let priorStreak = 0;
+  for (let i = n-2; i >= 0; i--) {
+    if (series[i].total >= goal) priorStreak++;
+    else break;
+  }
+  const current = todayHit ? priorStreak + 1 : priorStreak;
+  let best = 0, run = 0;
+  for (const d of series) {
+    if (d.total >= goal) { run++; best = Math.max(best, run); }
+    else run = 0;
+  }
+  const hits = series.filter(d => d.total >= goal).length;
+  return { current, best, hits, total: n, todayHit, pending: !todayHit && priorStreak > 0, priorStreak };
+}
+
+function dayIntensity(total, goal) {
+  if (total == null) return null;
+  if (total < goal * 0.4) return 0.12;
+  if (total < goal * 0.7) return 0.32;
+  if (total < goal)       return 0.55;
+  if (total < goal * 1.15) return 0.85;
+  return 1.0;
+}
+
 // ── Persistence helpers ──────────────────────────────────────
 const STORE_KEY = 'pt_v1';
 function loadStore() {
@@ -340,20 +375,37 @@ function ProtoApp({ isMobile = false }) {
   const today = todayStr();
 
   // If it's a new day, roll yesterday's total into history and clear logs
-  const [initialLogs, initialHistory, initialPastLogs] = React.useMemo(() => {
+  const [initialLogs, initialDailyTotals, initialPastLogs] = React.useMemo(() => {
     const savedDate = saved.logDate;
     const savedLogs = saved.logs || [];
-    const savedHistory = saved.history || [0, 0, 0, 0, 0, 0];
     const savedPastLogs = saved.pastLogs || {};
+    const savedGoal = saved.goal || 110;
+    // Load or migrate: old saves have `history` array, new saves have `dailyTotals` object
+    let baseTotals = saved.dailyTotals || null;
+    if (!baseTotals) {
+      baseTotals = {};
+      const savedHistory = saved.history || [];
+      for (let i = 0; i < savedHistory.length; i++) {
+        if (savedHistory[i] > 0) {
+          const d = new Date(); d.setDate(d.getDate() - (savedHistory.length - i));
+          const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+          baseTotals[ds] = { total: savedHistory[i], goal: savedGoal };
+        }
+      }
+      for (const [date, logs] of Object.entries(savedPastLogs)) {
+        const total = (logs || []).reduce((s, l) => s + l.protein, 0);
+        if (total > 0) baseTotals[date] = { total, goal: savedGoal };
+      }
+    }
     if (savedDate && savedDate !== today) {
+      const prevTotal = savedLogs.reduce((s, l) => s + l.protein, 0);
       const updatedPast = { ...savedPastLogs, [savedDate]: savedLogs };
       const keys = Object.keys(updatedPast).sort();
       const trimmedPast = Object.fromEntries(keys.slice(-30).map(k => [k, updatedPast[k]]));
-      const prevTotal = savedLogs.reduce((s, l) => s + l.protein, 0);
-      const hist = [...savedHistory, prevTotal].slice(-6);
-      return [[], hist, trimmedPast];
+      const updatedTotals = { ...baseTotals, [savedDate]: { total: prevTotal, goal: savedGoal } };
+      return [[], updatedTotals, trimmedPast];
     }
-    return [savedLogs, savedHistory, savedPastLogs];
+    return [savedLogs, baseTotals, savedPastLogs];
   }, []);
 
   const [goal, setGoal] = React.useState(saved.goal || 110);
@@ -362,7 +414,7 @@ function ProtoApp({ isMobile = false }) {
   const [weight, setWeight] = React.useState(saved.weight || 70);
   const [activity, setActivity] = React.useState(saved.activity || 'beginner');
   const [logs, setLogs] = React.useState(initialLogs);
-  const [history, setHistory] = React.useState(initialHistory);
+  const [dailyTotals, setDailyTotals] = React.useState(initialDailyTotals);
   const [pastLogs, setPastLogs] = React.useState(initialPastLogs);
   const [viewDate, setViewDate] = React.useState(todayStr());
   const [onboarded, setOnboarded] = React.useState(!!saved.onboarded);
@@ -371,10 +423,35 @@ function ProtoApp({ isMobile = false }) {
   const todayTotal = logs.reduce((s, l) => s + l.protein, 0);
   const pct = Math.min(1, todayTotal / goal);
 
+  const series = React.useMemo(() => {
+    const result = [];
+    for (const ds of Object.keys(dailyTotals).sort()) {
+      result.push({ date: new Date(ds + 'T00:00:00'), total: dailyTotals[ds].total });
+    }
+    result.push({ date: new Date(today + 'T00:00:00'), total: todayTotal });
+    return result;
+  }, [dailyTotals, todayTotal, today]);
+
+  const streaks = React.useMemo(() => computeStreaks(series, goal), [series, goal]);
+
+  const last7 = React.useMemo(() => Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const total = ds === today ? todayTotal : (dailyTotals[ds] ? dailyTotals[ds].total : 0);
+    if (i === 6) return total >= goal ? 'hit' : 'pending';
+    return total >= goal ? 'hit' : 'miss';
+  }), [dailyTotals, todayTotal, goal, today]);
+
+  const weekData = React.useMemo(() => Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+    const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    return ds === today ? todayTotal : (dailyTotals[ds] ? dailyTotals[ds].total : 0);
+  }), [dailyTotals, todayTotal, today]);
+
   // Persist whenever anything meaningful changes
   React.useEffect(() => {
-    saveStore({ onboarded, weight, activity, goal, logDate: today, logs, history, pastLogs, savedFoods });
-  }, [onboarded, weight, activity, goal, logs, history, pastLogs, savedFoods]);
+    saveStore({ onboarded, weight, activity, goal, logDate: today, logs, dailyTotals, pastLogs, savedFoods });
+  }, [onboarded, weight, activity, goal, logs, dailyTotals, pastLogs, savedFoods]);
 
   const goalFromWeight = (w, a) => {
     const ratio = a === 'beginner' ? 1.4 : a === 'moderate' ? 1.6 : 1.8;
@@ -383,16 +460,14 @@ function ProtoApp({ isMobile = false }) {
 
   const completeOnboarding = () => { setOnboarded(true); setScreen('today'); };
 
-  const syncHistoryForDate = (date, entries) => {
-    const ago = daysAgo(date);
-    if (ago < 1 || ago > 6) return;
+  const syncDailyTotalForDate = (date, entries) => {
     const total = (entries || []).reduce((s, l) => s + l.protein, 0);
-    setHistory(prev => { const next = [...prev]; next[6 - ago] = total; return next; });
+    setDailyTotals(prev => ({ ...prev, [date]: { total, goal } }));
   };
   const addToPastDay = (date, entry) => {
     const newEntries = [...(pastLogs[date] || []), entry];
     setPastLogs(prev => ({ ...prev, [date]: newEntries }));
-    syncHistoryForDate(date, newEntries);
+    syncDailyTotalForDate(date, newEntries);
   };
 
   const addFood = (food) => {
@@ -427,7 +502,7 @@ function ProtoApp({ isMobile = false }) {
       } else {
         const newEntries = (pastLogs[viewDate] || []).map(l => l.id === editing.id ? { ...l, name, protein, time } : l);
         setPastLogs(prev => ({ ...prev, [viewDate]: newEntries }));
-        syncHistoryForDate(viewDate, newEntries);
+        syncDailyTotalForDate(viewDate, newEntries);
       }
     }
     setEditing(null);
@@ -439,7 +514,7 @@ function ProtoApp({ isMobile = false }) {
       } else {
         const newEntries = (pastLogs[viewDate] || []).filter(l => l.id !== editing.id);
         setPastLogs(prev => ({ ...prev, [viewDate]: newEntries }));
-        syncHistoryForDate(viewDate, newEntries);
+        syncDailyTotalForDate(viewDate, newEntries);
       }
     }
     setEditing(null);
@@ -460,10 +535,10 @@ function ProtoApp({ isMobile = false }) {
   else if (screen === 'today') body = <Today T={theme} logs={logs} todayTotal={todayTotal} goal={goal} pct={pct} onLog={() => setLogOpen(true)}
     onRemove={(id) => {
       if (viewDate === todayStr()) { removeLog(id); }
-      else { const ne = (pastLogs[viewDate] || []).filter(l => l.id !== id); setPastLogs(p => ({...p, [viewDate]: ne})); syncHistoryForDate(viewDate, ne); }
+      else { const ne = (pastLogs[viewDate] || []).filter(l => l.id !== id); setPastLogs(p => ({...p, [viewDate]: ne})); syncDailyTotalForDate(viewDate, ne); }
     }}
-    onEdit={(log) => setEditing(log)} singlish="calm" showWeekChart={true} history={history} topPad={tp} viewDate={viewDate} pastLogs={pastLogs} setViewDate={setViewDate} />;
-  else if (screen === 'week')    body = <Week T={theme} history={history} todayTotal={todayTotal} goal={goal} singlish="calm" topPad={tp} />;
+    onEdit={(log) => setEditing(log)} singlish="calm" showWeekChart={true} streaks={streaks} last7={last7} weekData={weekData} topPad={tp} viewDate={viewDate} pastLogs={pastLogs} setViewDate={setViewDate} />;
+  else if (screen === 'week')    body = <History T={theme} series={series} goal={goal} topPad={tp} />;
   else if (screen === 'profile') body = <Profile T={theme} goal={goal} setGoal={setGoal} weight={weight} activity={activity} onResetOnboarding={() => { setOnboarded(false); setScreen('onb-1'); }} topPad={tp} />;
 
   const showTabs = screen === 'today' || screen === 'week' || screen === 'profile';
@@ -666,9 +741,73 @@ function BigButton({ T, onClick, children }) {
   );
 }
 
+// ── STREAK COMPONENTS ───────────────────────────────────────
+
+function Flame({ size = 18, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <path d="M12 2.5 C 11 6, 8 7.5, 8 11.5 C 8 13, 8.6 14.2, 9.5 15 C 9 13.8, 9.6 12.5, 10.6 12 C 10.4 14, 12 14.4, 12 16.6 C 12 17.6, 11.4 18.4, 10.6 18.7 C 13 19.2, 16 17.3, 16 13.5 C 16 9.8, 13.5 7.5, 12 2.5 Z" fill={color} />
+    </svg>
+  );
+}
+
+function StreakBand({ T, current, best, last7, pending, remaining }) {
+  return (
+    <div
+      role="region"
+      aria-label={`Current streak: ${current} day${current === 1 ? '' : 's'}. ${pending ? remaining + ' grams to keep it alive.' : 'Best ever ' + best + ' days.'}`}
+      style={{
+        margin: '14px 16px 0', padding: '12px 14px',
+        background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16,
+        display: 'flex', alignItems: 'center', gap: 12,
+      }}
+    >
+      <div style={{
+        width: 36, height: 36, borderRadius: 18,
+        background: T.accentSoft, color: T.accent,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0, opacity: pending ? 0.65 : 1,
+      }}>
+        <Flame size={20} color={T.accent} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: T.ink, fontVariantNumeric: 'tabular-nums', letterSpacing: -0.2, fontFamily: T.fontDisplay }}>
+            {current}
+          </div>
+          <div style={{ fontSize: 13, color: T.ink, fontWeight: 500 }}>
+            day{current === 1 ? '' : 's'} on goal
+          </div>
+        </div>
+        <div style={{ fontSize: 11, color: pending ? T.accent : T.muted, marginTop: 2, fontVariantNumeric: 'tabular-nums', letterSpacing: 0.2, fontWeight: pending ? 600 : 400 }}>
+          {pending
+            ? (remaining > 0 ? `${remaining}g to keep it alive` : 'Keep it alive today')
+            : `Best ever · ${best} days`}
+        </div>
+      </div>
+      <div aria-hidden="true" style={{ display: 'flex', gap: 4 }}>
+        {(last7 || []).map((state, i) => {
+          const hit = state === 'hit';
+          const isPending = state === 'pending';
+          return (
+            <div key={i} style={{
+              width: 8, height: 22, borderRadius: 4,
+              background: hit ? T.accent : isPending ? 'transparent' : T.line,
+              border: isPending ? `1.5px dashed ${T.accent}` : 'none',
+              boxSizing: 'border-box',
+              opacity: i === 6 ? 1 : 0.55 + (i / 12),
+              transition: 'background-color 250ms ease-out, border-color 250ms ease-out',
+            }} />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── TODAY ───────────────────────────────────────────────────
 
-function Today({ T, logs, todayTotal, goal, pct, onLog, onRemove, onEdit, singlish, showWeekChart, history, topPad = 60, viewDate, pastLogs, setViewDate }) {
+function Today({ T, logs, todayTotal, goal, pct, onLog, onRemove, onEdit, singlish, showWeekChart, streaks, last7, weekData, topPad = 60, viewDate, pastLogs, setViewDate }) {
   const today = todayStr();
   const isToday = !viewDate || viewDate === today;
   const displayLogs = isToday ? logs : (pastLogs && pastLogs[viewDate] || []);
@@ -761,6 +900,10 @@ function Today({ T, logs, todayTotal, goal, pct, onLog, onRemove, onEdit, singli
         {subtitle}
       </div>
 
+      {isToday && streaks && streaks.current > 0 && (
+        <StreakBand T={T} current={streaks.current} best={streaks.best} last7={last7} pending={streaks.pending} remaining={Math.max(0, goal - todayTotal)} />
+      )}
+
       <div style={{ padding: '20px 16px 0' }}>
         <button onClick={onLog} style={{
           all: 'unset', cursor: 'pointer',
@@ -801,11 +944,11 @@ function Today({ T, logs, todayTotal, goal, pct, onLog, onRemove, onEdit, singli
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 8px' }}>
             <div style={{ fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>Last 7 days</div>
             <div style={{ fontSize: 11, color: T.muted, fontVariantNumeric: 'tabular-nums' }}>
-              {history.filter(h => h >= goal).length + (todayTotal >= goal ? 1 : 0)}/7 hit
+              {(weekData || []).filter(v => v >= goal).length}/7 hit
             </div>
           </div>
           <div style={{ background: T.surface, borderRadius: 16, border: `1px solid ${T.line}`, padding: '20px 18px 18px' }}>
-            <WeekBars T={T} data={[...history, todayTotal]} goal={goal} />
+            <WeekBars T={T} data={weekData || Array(7).fill(0)} goal={goal} />
           </div>
         </div>
       )}
@@ -839,62 +982,198 @@ function LogRow({ log, last, T, onRemove, onEdit }) {
   );
 }
 
-// ── WEEK ────────────────────────────────────────────────────
+// ── HISTORY (Stats tab) ─────────────────────────────────────
 
-function Week({ T, history, todayTotal, goal, singlish, topPad = 60 }) {
-  const data = [...history, todayTotal];
-  const hits = data.filter(d => d >= goal).length;
-  const avg = Math.round(data.reduce((s,v) => s+v, 0) / 7);
+function History({ T, series, goal, topPad = 60 }) {
+  const { current, best, hits, total } = computeStreaks(series, goal);
   return (
-    <div style={{ padding: `${topPad}px 16px 12px` }}>
-      <div style={{ padding: '8px 8px 18px' }}>
-        <div style={{ fontSize: 12, color: T.muted, letterSpacing: 0.2 }}>Past 7 days</div>
-        <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: -0.4, marginTop: 2, fontFamily: T.fontDisplay }}>
-          {singlish === 'cheeky' ? <>{hits} days hit. {hits >= 5 ? 'Steady la.' : 'Boleh better.'}</> : <>{hits} of 7 days at goal</>}
-        </div>
+    <div style={{ padding: `${topPad}px 0 24px` }}>
+      <div style={{ padding: '8px 24px 14px' }}>
+        <div style={{ fontSize: 12, color: T.muted, letterSpacing: 0.2 }}>Your runs</div>
+        <div style={{ fontSize: 26, fontWeight: 600, letterSpacing: -0.4, marginTop: 2, fontFamily: T.fontDisplay }}>History</div>
       </div>
-
-      <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 18, padding: '20px 16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: T.muted, fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 14 }}>
-          <span>Daily protein (g)</span>
-          <span style={{ fontVariantNumeric: 'tabular-nums' }}>avg {avg}g · goal {goal}g</span>
-        </div>
-        <WeekBars T={T} data={data} goal={goal} tall />
-      </div>
-
-      {data.filter(v => v > 0).length >= 3 && (
-        <>
-          <div style={{ padding: '18px 8px 8px', fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
-            Insights
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {(() => {
-              const maxVal = Math.max(...data);
-              const maxIdx = data.indexOf(maxVal);
-              const dayNames = data.map((_, i) => {
-                const d = new Date();
-                d.setDate(d.getDate() - (data.length - 1 - i));
-                return d.toLocaleDateString('en-SG', { weekday: 'short' });
-              });
-              return (
-                <>
-                  <Insight T={T} title="Strongest day" body={`${dayNames[maxIdx]} · ${maxVal}g — your best day so far.`} />
-                  {avg < goal && <Insight T={T} title="Common gap" body={`You're averaging ~${goal - avg}g short. Adding eggs or chicken breast closes it fast.`} />}
-                </>
-              );
-            })()}
-          </div>
-        </>
-      )}
+      <StreakSummary T={T} current={current} best={best} hits={hits} total={total} />
+      <CalendarBlock T={T} series={series} goal={goal} />
+      <InsightsBlock T={T} series={series} goal={goal} />
     </div>
   );
 }
 
-function Insight({ T, title, body }) {
+function StreakSummary({ T, current, best, hits, total }) {
+  return (
+    <div style={{ padding: '0 16px' }}>
+      <div style={{
+        background: T.surface, border: `1px solid ${T.line}`, borderRadius: 18,
+        padding: '16px 16px 14px', display: 'flex', alignItems: 'stretch',
+      }}>
+        <StatCell T={T} icon={<Flame size={16} color={T.accent} />} value={current} label="day streak" accent />
+        <div style={{ width: 1, background: T.line, margin: '4px 0' }} />
+        <StatCell T={T} value={best} label="best ever" center />
+        <div style={{ width: 1, background: T.line, margin: '4px 0' }} />
+        <StatCell T={T} value={`${Math.round((hits / Math.max(1, total)) * 100)}%`} label="hit rate" small center />
+      </div>
+    </div>
+  );
+}
+
+function StatCell({ T, icon, value, label, accent, small, center }) {
+  return (
+    <div style={{ flex: 1, padding: '4px 6px', display: 'flex', flexDirection: 'column', gap: 4, alignItems: center ? 'center' : 'flex-start' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minHeight: 28 }}>
+        {icon}
+        <div style={{
+          fontFamily: T.fontDisplay, fontSize: small ? 22 : 28, fontWeight: T.numWeight,
+          letterSpacing: -1, fontVariantNumeric: 'tabular-nums', lineHeight: 1,
+          color: accent ? T.accent : T.ink,
+        }}>{value}</div>
+      </div>
+      <div style={{ fontSize: 10, color: T.muted, fontWeight: 600, letterSpacing: 0.6, textTransform: 'uppercase' }}>
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function CalendarBlock({ T, series, goal }) {
+  const [offset, setOffset] = React.useState(0);
+  const today = new Date();
+  const view = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+  const monthLabel = view.toLocaleDateString('en', { month: 'long', year: 'numeric' });
+
+  const lookup = {};
+  for (const d of series) lookup[d.date.toDateString()] = d.total;
+
+  const firstDow = (view.getDay() + 6) % 7;
+  const daysInMonth = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < firstDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(view.getFullYear(), view.getMonth(), d));
+  while (cells.length % 7) cells.push(null);
+
+  let monthHits = 0, monthLogged = 0, monthSum = 0;
+  cells.forEach(d => {
+    if (!d || d > today) return;
+    const t = lookup[d.toDateString()];
+    if (t != null) { monthLogged++; monthSum += t; if (t >= goal) monthHits++; }
+  });
+  const monthAvg = monthLogged ? Math.round(monthSum / monthLogged) : 0;
+
+  return (
+    <div style={{ padding: '14px 16px 0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px 10px' }}>
+        <div style={{ fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>By month</div>
+        <div style={{ fontSize: 11, color: T.muted, fontVariantNumeric: 'tabular-nums' }}>
+          <b style={{ color: T.ink }}>{monthHits}</b>/{monthLogged} hit · avg {monthAvg}g
+        </div>
+      </div>
+      <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 16, padding: '14px 14px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px 12px' }}>
+          <button onClick={() => setOffset(o => o - 1)} disabled={offset <= -3} style={{
+            all: 'unset', cursor: offset <= -3 ? 'not-allowed' : 'pointer',
+            width: 28, height: 28, borderRadius: 14,
+            background: T.bg, border: `1px solid ${T.line}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: offset <= -3 ? T.line : T.ink, opacity: offset <= -3 ? 0.4 : 1,
+          }}>
+            <svg width="8" height="12" viewBox="0 0 8 12"><path d="M6 2L2 6l4 4" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round"/></svg>
+          </button>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.ink, fontFamily: T.fontDisplay, letterSpacing: -0.2 }}>{monthLabel}</div>
+          <button onClick={() => setOffset(o => Math.min(0, o + 1))} disabled={offset >= 0} style={{
+            all: 'unset', cursor: offset >= 0 ? 'not-allowed' : 'pointer',
+            width: 28, height: 28, borderRadius: 14,
+            background: T.bg, border: `1px solid ${T.line}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: offset >= 0 ? T.line : T.ink, opacity: offset >= 0 ? 0.4 : 1,
+          }}>
+            <svg width="8" height="12" viewBox="0 0 8 12"><path d="M2 2l4 4-4 4" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round"/></svg>
+          </button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, padding: '0 2px 6px' }}>
+          {['M','T','W','T','F','S','S'].map((d, i) => (
+            <div key={i} style={{ textAlign: 'center', fontSize: 10, color: T.muted, fontWeight: 600 }}>{d}</div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, padding: '0 2px' }}>
+          {cells.map((d, i) => {
+            if (!d) return <div key={i} style={{ aspectRatio: '1' }} />;
+            const total = lookup[d.toDateString()];
+            const inten = dayIntensity(total, goal);
+            const isFuture = d > today;
+            const isToday = d.toDateString() === today.toDateString();
+            const isHit = total != null && total >= goal;
+            const cellColor = inten == null ? null : hexAlpha(isHit ? T.accent : '#D4823A', Math.max(0.1, inten));
+            const textColor = inten > 0.6 ? T.ink : T.muted;
+            return (
+              <div key={i} role="gridcell"
+                aria-label={isFuture ? undefined : `${d.toLocaleDateString('en', { month: 'short', day: 'numeric' })}, ${total != null ? total + 'g of ' + goal + 'g goal ' + (isHit ? 'met' : 'missed') : 'no data'}`}
+                style={{
+                  aspectRatio: '1', borderRadius: 8,
+                  background: isFuture ? 'transparent' : cellColor ?? T.bg,
+                  border: isToday ? `1.5px solid ${T.ink}` : inten == null && !isFuture ? `1px dashed ${T.line}` : `1px solid ${T.line}`,
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  opacity: isFuture ? 0.25 : 1, color: textColor,
+                }}>
+                <div style={{ fontSize: 12, fontWeight: isToday ? 700 : 500, fontVariantNumeric: 'tabular-nums' }}>{d.getDate()}</div>
+                {total != null && !isFuture && (
+                  <div style={{ fontSize: 8, opacity: 0.7, fontVariantNumeric: 'tabular-nums', marginTop: -1, color: textColor }}>{total}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InsightsBlock({ T, series, goal }) {
+  if (series.length < 7) {
+    return (
+      <div style={{ padding: '20px 16px 0' }}>
+        <div style={{ background: T.surface, border: `1px dashed ${T.line}`, borderRadius: 14, padding: '20px 16px', textAlign: 'center', fontSize: 13, color: T.muted, lineHeight: 1.5 }}>
+          Log for 7 days to unlock patterns.
+        </div>
+      </div>
+    );
+  }
+  const byDow = [0,0,0,0,0,0,0], cntDow = [0,0,0,0,0,0,0];
+  for (const d of series) {
+    const dow = d.date.getDay();
+    cntDow[dow]++;
+    if (d.total >= goal) byDow[dow]++;
+  }
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const rates = byDow.map((h, i) => ({ rate: cntDow[i] ? h / cntDow[i] : 0, label: dayNames[i] }));
+  const best = [...rates].sort((a,b) => b.rate - a.rate)[0];
+  const worst = [...rates].sort((a,b) => a.rate - b.rate)[0];
+  const last30 = series.slice(-30);
+  const avg30 = Math.round(last30.reduce((s, d) => s + d.total, 0) / last30.length);
+  return (
+    <>
+      <div style={{ padding: '20px 20px 8px', fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>Patterns</div>
+      <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <InsightCard T={T} eyebrow="Strongest day"
+          headline={`${best.label}s · ${Math.round(best.rate * 100)}% hit rate`}
+          body={`You're most consistent on ${best.label}s. Anchor habits there.`} />
+        <InsightCard T={T} eyebrow="Weak spot"
+          headline={`${worst.label}s · only ${Math.round(worst.rate * 100)}% hit`}
+          body={`${worst.label}s tend to slip. Plan one easy 30g meal in advance.`} />
+        <InsightCard T={T} eyebrow="30-day average"
+          headline={`${avg30}g per day`}
+          body={avg30 >= goal
+            ? `That's above your ${goal}g goal — trend is up.`
+            : `${goal - avg30}g short of goal on average. Closeable with one shake.`} />
+      </div>
+    </>
+  );
+}
+
+function InsightCard({ T, eyebrow, headline, body }) {
   return (
     <div style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: 14, padding: '14px 16px' }}>
-      <div style={{ fontSize: 11, color: T.accent, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase' }}>{title}</div>
-      <div style={{ fontSize: 14, color: T.ink, marginTop: 4, lineHeight: 1.45 }}>{body}</div>
+      <div style={{ fontSize: 11, color: T.accent, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase' }}>{eyebrow}</div>
+      <div style={{ fontSize: 15, color: T.ink, marginTop: 4, fontWeight: 600, letterSpacing: -0.2 }}>{headline}</div>
+      <div style={{ fontSize: 13, color: T.muted, marginTop: 4, lineHeight: 1.45 }}>{body}</div>
     </div>
   );
 }
