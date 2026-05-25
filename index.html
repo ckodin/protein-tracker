@@ -939,19 +939,6 @@ function Today({ T, logs, todayTotal, goal, pct, onLog, onRemove, onEdit, singli
         )}
       </div>
 
-      {showWeekChart && (
-        <div style={{ padding: '20px 16px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 8px 8px' }}>
-            <div style={{ fontSize: 11, color: T.muted, textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>Last 7 days</div>
-            <div style={{ fontSize: 11, color: T.muted, fontVariantNumeric: 'tabular-nums' }}>
-              {(weekData || []).filter(v => v >= goal).length}/7 hit
-            </div>
-          </div>
-          <div style={{ background: T.surface, borderRadius: 16, border: `1px solid ${T.line}`, padding: '20px 18px 18px' }}>
-            <WeekBars T={T} data={weekData || Array(7).fill(0)} goal={goal} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
