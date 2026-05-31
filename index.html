@@ -436,7 +436,7 @@ function ProtoApp({ isMobile = false }) {
     }
     return Object.entries(counts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
+      .slice(0, 8)
       .map(([name]) => byName[name]);
   }, [logs, pastLogs]);
 
@@ -1531,7 +1531,7 @@ function SheetTiles({ T, onAdd, onAddCustom, query, setQuery, savedFoods, onRemo
       {!query && uniqueFrequents.length > 0 && (
         <div style={{ paddingTop: 14 }}>
           <div style={{ fontSize: 11, color: T.muted, padding: '0 24px 8px', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>Used often</div>
-          <div style={{ display: 'flex', gap: 8, padding: '0 16px', overflowX: 'auto' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 16px' }}>
             {uniqueFrequents.map(food => (
               <SavedFoodChip key={food.id + food.name} T={T} food={food} onAdd={onAdd} />
             ))}
