@@ -1496,7 +1496,7 @@ function YourFoodsSection({ T, savedFoods, onAdd, onRemove }) {
   return (
     <div style={{ paddingTop: 14 }}>
       <div style={{ fontSize: 11, color: T.muted, padding: '0 24px 8px', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>Your Foods</div>
-      <div style={{ display: 'flex', gap: 8, padding: '0 16px', overflowX: 'auto' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: '0 16px' }}>
         {savedFoods.map(food => (
           <SavedFoodChip key={food.id} T={T} food={food} onAdd={onAdd} onRemove={onRemove} />
         ))}
