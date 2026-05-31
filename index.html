@@ -423,6 +423,23 @@ function ProtoApp({ isMobile = false }) {
   const todayTotal = logs.reduce((s, l) => s + l.protein, 0);
   const pct = Math.min(1, todayTotal / goal);
 
+  const frequentFoods = React.useMemo(() => {
+    const allEntries = [...logs, ...Object.values(pastLogs).flat()];
+    const counts = {};
+    const byName = {};
+    for (const entry of allEntries) {
+      counts[entry.name] = (counts[entry.name] || 0) + 1;
+      if (!byName[entry.name]) {
+        const sg = window.SG_FOODS.find(f => f.id === entry.foodId);
+        byName[entry.name] = sg || { id: entry.foodId, name: entry.name, protein: entry.protein };
+      }
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name]) => byName[name]);
+  }, [logs, pastLogs]);
+
   const series = React.useMemo(() => {
     const result = [];
     for (const ds of Object.keys(dailyTotals).sort()) {
@@ -559,7 +576,7 @@ function ProtoApp({ isMobile = false }) {
 
       {showTabs && <TabBar T={theme} screen={screen} setScreen={setScreen} onLog={() => setLogOpen(true)} />}
 
-      <LogSheet open={logOpen} onClose={() => setLogOpen(false)} onAdd={addFood} onAddCustom={openCustomFood} T={theme} variant="tiles" todayTotal={todayTotal} goal={goal} savedFoods={savedFoods} onRemoveSaved={removeSavedFood} viewDate={viewDate} />
+      <LogSheet open={logOpen} onClose={() => setLogOpen(false)} onAdd={addFood} onAddCustom={openCustomFood} T={theme} variant="tiles" todayTotal={todayTotal} goal={goal} savedFoods={savedFoods} onRemoveSaved={removeSavedFood} viewDate={viewDate} frequentFoods={frequentFoods} />
 
       <EditLogSheet editing={editing} T={theme} onClose={() => setEditing(null)} onSave={saveEditing} onDelete={deleteEditing} />
 
@@ -1331,7 +1348,7 @@ window.tierColor = function (g) {
 // This hook is kept as a no-op so call sites don't need changing.
 function useKeyboardHeight() { return { kh: 0, vvh: window.innerHeight }; }
 
-function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, goal, savedFoods, onRemoveSaved, viewDate }) {
+function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, goal, savedFoods, onRemoveSaved, viewDate, frequentFoods }) {
   const [mounted, setMounted] = React.useState(open);
   const [shown, setShown] = React.useState(false);
   const [query, setQuery] = React.useState('');
@@ -1395,7 +1412,7 @@ function LogSheet({ open, onClose, onAdd, onAddCustom, T, variant, todayTotal, g
         </div>
         <SearchInput T={T} query={query} setQuery={setQuery} />
         <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0 24px' }}>
-          {variant === 'tiles'   && <SheetTiles   T={T} onAdd={onAdd} onAddCustom={() => onAddCustom(query)} query={query} setQuery={setQuery} savedFoods={savedFoods} onRemoveSaved={onRemoveSaved} />}
+          {variant === 'tiles'   && <SheetTiles   T={T} onAdd={onAdd} onAddCustom={() => onAddCustom(query)} query={query} setQuery={setQuery} savedFoods={savedFoods} onRemoveSaved={onRemoveSaved} frequentFoods={frequentFoods} />}
           {variant === 'search'  && <SheetSearch  T={T} onAdd={onAdd} onAddCustom={() => onAddCustom(query)} query={query} setQuery={setQuery} />}
           {variant === 'recents' && <SheetRecents T={T} onAdd={onAdd} onAddCustom={() => onAddCustom(query)} query={query} setQuery={setQuery} />}
         </div>
@@ -1462,12 +1479,14 @@ function SavedFoodChip({ T, food, onAdd, onRemove }) {
         <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, whiteSpace: 'nowrap', letterSpacing: -0.1 }}>{food.name}</div>
         <div style={{ fontSize: 11, color: T.muted, fontVariantNumeric: 'tabular-nums' }}>{food.protein}g</div>
       </button>
-      <button onClick={(e) => { e.stopPropagation(); onRemove(food.id); }} style={{
-        all: 'unset', cursor: 'pointer',
-        padding: '0 12px 0 6px',
-        display: 'flex', alignItems: 'center',
-        color: T.muted, fontSize: 13,
-      }}>✕</button>
+      {onRemove && (
+        <button onClick={(e) => { e.stopPropagation(); onRemove(food.id); }} style={{
+          all: 'unset', cursor: 'pointer',
+          padding: '0 12px 0 6px',
+          display: 'flex', alignItems: 'center',
+          color: T.muted, fontSize: 13,
+        }}>✕</button>
+      )}
     </div>
   );
 }
@@ -1486,7 +1505,7 @@ function YourFoodsSection({ T, savedFoods, onAdd, onRemove }) {
   );
 }
 
-function SheetTiles({ T, onAdd, onAddCustom, query, setQuery, savedFoods, onRemoveSaved }) {
+function SheetTiles({ T, onAdd, onAddCustom, query, setQuery, savedFoods, onRemoveSaved, frequentFoods }) {
   const foods = window.SG_FOODS;
   const cats = [
     { id: 'all',     label: 'All',     match: () => true },
@@ -1504,8 +1523,21 @@ function SheetTiles({ T, onAdd, onAddCustom, query, setQuery, savedFoods, onRemo
   const numVal = parseFloat(query.trim());
   const isQuickAdd = /^\d+(\.\d+)?$/.test(query.trim()) && numVal > 0 && numVal <= 999;
 
+  const savedNames = new Set((savedFoods || []).map(f => f.name.toLowerCase()));
+  const uniqueFrequents = (frequentFoods || []).filter(f => !savedNames.has(f.name.toLowerCase()));
+
   return (
     <div>
+      {!query && uniqueFrequents.length > 0 && (
+        <div style={{ paddingTop: 14 }}>
+          <div style={{ fontSize: 11, color: T.muted, padding: '0 24px 8px', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>Used often</div>
+          <div style={{ display: 'flex', gap: 8, padding: '0 16px', overflowX: 'auto' }}>
+            {uniqueFrequents.map(food => (
+              <SavedFoodChip key={food.id + food.name} T={T} food={food} onAdd={onAdd} />
+            ))}
+          </div>
+        </div>
+      )}
       {!query && <YourFoodsSection T={T} savedFoods={savedFoods} onAdd={onAdd} onRemove={onRemoveSaved} />}
       <div style={{ display: 'flex', gap: 8, padding: '14px 16px 4px', overflowX: 'auto' }}>
         {cats.map(c => (
