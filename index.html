@@ -1501,6 +1501,9 @@ function SheetTiles({ T, onAdd, onAddCustom, query, setQuery, savedFoods, onRemo
     .filter(cats.find(c => c.id === activeCat).match)
     .filter(f => !query || f.name.toLowerCase().includes(query.toLowerCase()));
 
+  const numVal = parseFloat(query.trim());
+  const isQuickAdd = /^\d+(\.\d+)?$/.test(query.trim()) && numVal > 0 && numVal <= 999;
+
   return (
     <div>
       {!query && <YourFoodsSection T={T} savedFoods={savedFoods} onAdd={onAdd} onRemove={onRemoveSaved} />}
@@ -1517,9 +1520,27 @@ function SheetTiles({ T, onAdd, onAddCustom, query, setQuery, savedFoods, onRemo
         ))}
       </div>
       <div style={{ fontSize: 11, color: T.muted, padding: '14px 24px 8px', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>
-        {query ? `${filtered.length} match${filtered.length !== 1 ? 'es' : ''}` : 'Tap to log'}
+        {isQuickAdd ? 'Quick add' : query ? `${filtered.length} match${filtered.length !== 1 ? 'es' : ''}` : 'Tap to log'}
       </div>
       <div style={{ padding: '0 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {isQuickAdd && (
+          <button
+            onClick={() => onAdd({ id: 'quick', name: `${numVal}g protein`, protein: numVal })}
+            style={{
+              gridColumn: '1 / -1',
+              all: 'unset', cursor: 'pointer',
+              background: T.surface, border: `2px solid ${window.tierColor(numVal)}`,
+              borderRadius: 14, padding: '16px 14px',
+              display: 'flex', alignItems: 'center', gap: 12,
+            }}
+          >
+            <div style={{ width: 36, height: 36, borderRadius: 9, background: window.tierColor(numVal), flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, color: '#fff', fontWeight: 300 }}>+</div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: T.ink, letterSpacing: -0.3 }}>Add {numVal}g protein</div>
+              <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{window.proteinBucket(numVal).label} · unnamed entry</div>
+            </div>
+          </button>
+        )}
         <button onClick={onAddCustom} style={{
           all: 'unset', cursor: 'pointer',
           background: T.accentSoft, border: `1px dashed ${T.accent}`,
